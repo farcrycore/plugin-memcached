@@ -8,7 +8,7 @@
 			<cfset application.objectrecycler =  createObject("java", "java.lang.ref.ReferenceQueue") />
 			
 			<!--- Set up cache replacement queue --->
-			<cfset cacheInitialise(1000,1000) />
+			<cfset cacheInitialise() />
 		</cfif>	
 		
 		<cfreturn this />
@@ -516,6 +516,8 @@
 	
 	<!--- Cache replacement functions --->
 	<cffunction name="cacheInitialise" access="public" output="false" returntype="void">
+		<cfargument name="config" type="struct" required="false" />
+		
 		<cfset var stCacheProperties = structnew() />
 		<cfset var javaLoader = "" />
 		<cfset var connectionFactory = "" />
@@ -523,10 +525,18 @@
 		<cfset var locatorType = "" />
 		<cfset var addresses = "" />
 		
-		<cfif isdefined("application.config.memcached.servers") and len(trim(application.config.memcached.servers))
-			and isdefined("application.config.memcached.protocol") and len(trim(application.config.memcached.protocol))
-			and isdefined("application.config.memcached.locator") and len(trim(application.config.memcached.locator))
-			and isdefined("application.config.memcached.operationTimeout") and len(trim(application.config.memcached.operationTimeout))>
+		<cfif not structkeyexists(arguments,"config")>
+			<cfif isdefined("application.config.memcached")>
+				<cfset arguments.config = application.config.memcached />
+			<cfelse>
+				<cfset arguments.config = structnew() />
+			</cfif>
+		</cfif>
+		
+		<cfif isdefined("arguments.config.servers") and len(trim(arguments.config.servers))
+			and isdefined("arguments.config.protocol") and len(trim(arguments.config.protocol))
+			and isdefined("arguments.config.locator") and len(trim(arguments.config.locator))
+			and isdefined("arguments.config.operationTimeout") and len(trim(arguments.config.operationTimeout))>
 			
 			<cflog type="information" file="#application.applicationname#_memcached" text="Creating memcached client" />
 			
@@ -534,10 +544,10 @@
 				listtoarray(expandpath("/farcry/plugins/memcached/packages/java/AmazonElastiCacheClusterClient-1.0.jar"))
 			) />
 			
-			<cfif refindnocase(".*\.cfg.\w+.cache.amazonaws.com",application.config.memcached.servers)>
+			<cfif refindnocase(".*\.cfg.\w+.cache.amazonaws.com",arguments.config.servers)>
 				
 				<cfset addresses = javaLoader.create("net.spy.memcached.AddrUtil").getAddresses(
-					listchangedelims(application.config.memcached.servers,"#chr(13)##chr(10)#,"," ")
+					listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
 				) />
 				<cflog type="information" file="#application.applicationname#_memcached" text="Configuration nodes: #addresses.toString()#" />
 				
@@ -549,14 +559,14 @@
 				<cfset protocolType = javaLoader.create("net.spy.memcached.ConnectionFactoryBuilder$Protocol") />
 				<cfset locatorType = javaLoader.create("net.spy.memcached.ConnectionFactoryBuilder$Locator") />
 				<cfset connectionFactory = javaLoader.create("net.spy.memcached.ConnectionFactoryBuilder")
-					.setProtocol(protocolType[application.config.memcached.protocol])
-					.setLocatorType(locatorType[application.config.memcached.locator])
-					.setOpTimeout(JavaCast( "int", application.config.memcached.operationTimeout ) )
+					.setProtocol(protocolType[arguments.config.protocol])
+					.setLocatorType(locatorType[arguments.config.locator])
+					.setOpTimeout(JavaCast( "int", arguments.config.operationTimeout ) )
 					.build() />
 				<cflog type="information" file="#application.applicationname#_memcached" text="Configuration: #connectionFactory.toString()#" />
 				
 				<cfset addresses = javaLoader.create("net.spy.memcached.AddrUtil").getAddresses(
-					listchangedelims(application.config.memcached.servers,"#chr(13)##chr(10)#,"," ")
+					listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
 				) />
 				<cflog type="information" file="#application.applicationname#_memcached" text="Server nodes: #addresses.toString()#" />
 				
@@ -564,6 +574,11 @@
 				<cflog type="information" file="#application.applicationname#_memcached" text="Memcached client set up" />
 				
 			</cfif>
+			
+			<cfset this.pull_total = 0 />
+			<cfset this.pull_count = 0 />
+			<cfset this.add_total = 0 />
+			<cfset this.add_count = 0 />
 		<cfelse>
 			<cflog type="information" file="#application.applicationname#_memcached" text="No config for memcached" />
 			<cfif structkeyexists(this,"memcached")>
@@ -577,6 +592,7 @@
 		<cfargument name="key" type="string" required="true" />
 		
 		<cfset var stLocal = structnew() />
+		<cfset var starttime = getTickCount() />
 
         <cfset stLocal.value = structnew() />
 		
@@ -586,10 +602,13 @@
 				
 				<!--- catch nulls --->
 				<cfif NOT StructKeyExists(stLocal,"value")>
-					<cfset stLocal.value = "" />
+					<cfset stLocal.value = structnew() />
 				</cfif>
 				
-		       <cfset stLocal.value = deserializeByteArray(stLocal.value) />
+				<cfset stLocal.value = deserializeByteArray(stLocal.value) />
+				
+				<cfset this.pull_total = this.pull_total + getTickCount() - starttime />
+				<cfset this.pull_count = this.pull_count + 1 />
 				
 				<cfcatch>
 					<cfset stLocal.value = structnew() />
@@ -603,11 +622,16 @@
 	<cffunction name="cacheAdd" access="public" output="false" returntype="void" hint="Puts the specified key in the cache. Note that if the key IS in cache or the data is deliberately empty, the cache is updated but cache queuing is not effected.">
 		<cfargument name="key" type="string" required="true" />
 		<cfargument name="data" type="struct" required="true" />
-		<cfargument name="timeout" type="numeric" required="false" default="86400" hint="Number of seconds until this item should timeout" />
+		<cfargument name="timeout" type="numeric" required="false" default="1400" hint="Number of seconds until this item should timeout" />
+		
+		<cfset var starttime = getTickCount() />
 		
 		<cfif structkeyexists(this,"memcached")>
 			<cftry>
-				<cfset this.memcached.set(arguments.key, arguments.expiry, serializeByteArray(arguments.data)) />
+				<cfset this.memcached.set(arguments.key, arguments.timeout*60000, serializeByteArray(arguments.data)) />
+				
+				<cfset this.add_total = this.add_total + getTickCount() - starttime />
+				<cfset this.add_count = this.add_count + 1 />
 				
 				<cfcatch>
 					<cflog type="error" file="#application.applicationname#_memcached" text="Error adding to cache: #cfcatch.message#" />
@@ -680,29 +704,66 @@
 	
 	<!--- Memcached Utility functions --->
 	<cffunction name="memcachedAvailableServers" access="public" returntype="any" output="false" hint="Get the addresses of available servers.">
+		<cfset var stResult = structnew() />
 		
-		<cfreturn this.memcached.getAvailableServers() />
+		<cfif structkeyexists(this,"memcached")>
+			<cfset stResult = this.memcached.getAvailableServers() />
+		</cfif>
+		
+		<cfreturn stResult />
 	</cffunction>
 	
 	<cffunction name="memcachedStats" access="public" returntype="any" output="false" hint="Get all of the stats from all of the connections.">
-		<cfset var stats = {} />
+		<cfset var stats = structnew() />
+		<cfset var i = "" />
 		
-		<cfset stats = mapToStruct(this.memcached.getStats()) />
+		<cfif structkeyexists(this,"memcached")>
+			<cfset stats = mapToStruct(this.memcached.getStats()) />
+			
+			<cfloop collection="#stats#" item="i">
+				<cfset stats[i] = mapToStruct(stats[i]) />
+			</cfloop>
+		</cfif>
 		
 		<cfreturn stats />
 	</cffunction>
 	
 	<cffunction name="memcachedUnavailableServers" access="public" returntype="any" output="false" hint="Get the addresses of unavailable servers.">
+		<cfset var stResult = structnew() />
 		
-		<cfreturn this.memcached.getUnavailableServers() />
+		<cfif structkeyexists(this,"memcached")>
+			<cfreturn this.memcached.getUnavailableServers() />
+		</cfif>
+		
+		<cfreturn stResult />
 	</cffunction>
 	
 	<cffunction name="memcachedVersions" access="public" returntype="any" output="false" hint="Get the versions of all of the connected memcacheds.">
-		<cfset var versions = {} />
+		<cfset var versions = structnew() />
 		
-		<cfset versions = mapToStruct(this.memcached.getVersions()) />
+		<cfif structkeyexists(this,"memcached")>
+			<cfset versions = mapToStruct(this.memcached.getVersions()) />
+		</cfif>
 		
 		<cfreturn versions />
+	</cffunction>
+	
+	<cffunction name="getAveragePutTime" access="public" returntype="numeric" output="false" hint="Average number of milliseconds for a put">
+		
+		<cfif this.add_count eq 0>
+			<cfreturn 0 />
+		<cfelse>
+			<cfreturn int(this.add_total / this.add_count) />
+		</cfif>
+	</cffunction>
+	
+	<cffunction name="getAverageGetTime" access="public" returntype="numeric" output="false" hint="Average number of milliseconds for a get">
+		
+		<cfif this.pull_count eq 0>
+			<cfreturn 0 />
+		<cfelse>
+			<cfreturn int(this.pull_total / this.pull_count) />
+		</cfif>
 	</cffunction>
 	
     <cffunction name="mapToStruct" access="private" returntype="struct" output="false">
