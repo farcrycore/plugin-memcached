@@ -622,13 +622,13 @@
 	<cffunction name="cacheAdd" access="public" output="false" returntype="void" hint="Puts the specified key in the cache. Note that if the key IS in cache or the data is deliberately empty, the cache is updated but cache queuing is not effected.">
 		<cfargument name="key" type="string" required="true" />
 		<cfargument name="data" type="struct" required="true" />
-		<cfargument name="timeout" type="numeric" required="false" default="1400" hint="Number of seconds until this item should timeout" />
+		<cfargument name="timeout" type="numeric" required="false" default="3600" hint="Number of seconds until this item should timeout" />
 		
 		<cfset var starttime = getTickCount() />
 		
 		<cfif structkeyexists(this,"memcached")>
 			<cftry>
-				<cfset this.memcached.set(arguments.key, arguments.timeout*60000, serializeByteArray(arguments.data)) />
+				<cfset this.memcached.set(arguments.key, min(arguments.timeout,60*60*24*30), serializeByteArray(arguments.data)) />
 				
 				<cfset this.add_total = this.add_total + getTickCount() - starttime />
 				<cfset this.add_count = this.add_count + 1 />
