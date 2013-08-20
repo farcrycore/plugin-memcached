@@ -18,7 +18,7 @@
 		<cfargument name="ObjectID" required="yes" type="UUID">
 		<cfargument name="typename" required="true" type="string">
 		
-		<cfif isCacheable(typename=arguments.typename)>
+		<cfif isCacheable(typename=arguments.typename,action="read")>
 			<cfreturn cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.objectid#") />
 		<cfelse>
 			<cfreturn structnew() />
@@ -50,7 +50,7 @@
 			<cfset webskinTypename = stCoapi.name />
 		</cfif>
 
-		<cfif isCacheable(typename=webskinTypename,template=arguments.template)>
+		<cfif isCacheable(typename=webskinTypename,template=arguments.template,action="read")>
 				
 			<cfset stResult.webskinCacheID = generateWebskinCacheID(
 					typename="#webskinTypename#", 
@@ -334,6 +334,7 @@
 	<cffunction name="isCacheable" access="private" output="false" returntype="boolean" hint="Utility function for addWebskin - returns true if the conditions for caching are met">
 		<cfargument name="typename" type="string" required="true" />
 		<cfargument name="template" type="string" required="false" />
+		<cfargument name="action" type="string" required="false" default="read" />
 		
 		<cfparam name="request.mode.flushcache" default="0">
 		<cfparam name="request.mode.showdraft" default="0">
@@ -343,7 +344,7 @@
 				  not (
 				  	structKeyExists(request,"mode") AND 
 				  	(
-				  		request.mode.flushcache EQ 1 OR 
+				  		(arguments.action eq "read" and request.mode.flushcache EQ 1) OR 
 				  		request.mode.showdraft EQ 1 OR 
 				  		request.mode.lvalidstatus NEQ "approved"
 				  	) 
@@ -394,7 +395,7 @@
 			<cfset webskinTypename = stCoapi.name />
 		</cfif>
 		
-		<cfif isCacheable(typename=webskinTypename,template=arguments.template)>
+		<cfif isCacheable(typename=webskinTypename,template=arguments.template,action="write")>
 			
 			<!--- Add the current State of the request.inHead scope into the broker --->
 			<cfparam name="request.inHead" default="#structNew()#">
@@ -434,7 +435,7 @@
 		<cfargument name="stObj" required="yes" type="struct">
 		<cfargument name="typename" required="true" type="string">
 		
-		<cfif isCacheable(arguments.typename) and structkeyexists(arguments.stObj, "objectid")>
+		<cfif isCacheable(typename=arguments.typename,action="write") and structkeyexists(arguments.stObj, "objectid")>
 			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.stObj.objectid#",arguments.stObj) />
 			<cfreturn true />
 		</cfif>
