@@ -458,8 +458,8 @@
 	</cffunction>
 	
 	<cffunction name="flushTypeWatchWebskins" access="public" output="false" returntype="boolean" hint="Finds all webskins watching this type for any CRUD functions and flushes them from the cache">
-	 	<cfargument name="objectID" required="true" hint="The typename that the CRUD function was performed on." />
-	 	<cfargument name="typename" required="true" hint="" />
+	 	<cfargument name="objectID" required="false" hint="The typename that the CRUD function was performed on." />
+	 	<cfargument name="typename" required="false" hint="" />
 	 	<cfargument name="stObject" required="false" hint="Alternative to objectID+typename">
 		
 		<cfset var stTypeWatchWebskins = "" />
