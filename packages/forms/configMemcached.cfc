@@ -30,4 +30,27 @@
 		<cfreturn fields />
 	</cffunction>
 	
+
+	<cffunction name="getProgressBar" access="public" output="false" returntype="string">
+		<cfargument name="value" type="numeric" required="true" />
+		<cfargument name="max" type="numeric" required="true" />
+		<cfargument name="label" type="string" required="true" />
+		<cfargument name="styleClass" type="string" required="false" default="progress-info" />
+
+		<cfset var html = "" />
+		<cfset var width = 0 />
+
+		<cfif arguments.max>
+			<cfset width = round(arguments.value / arguments.max * 100) />
+		</cfif>
+
+		<cfsavecontent variable="html"><cfoutput>
+			<div class="progress #arguments.styleClass# progress-striped">
+				<div class="bar" style="width:#width#%;">&nbsp;#arguments.label#</div>
+			</div>
+		</cfoutput></cfsavecontent>
+
+		<cfreturn html>
+	</cffunction>
+
 </cfcomponent>

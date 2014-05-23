@@ -60,7 +60,7 @@
         <cfset stLocal.value = structnew() />
 		
 		<cftry>
-			<cfset stLocal.value = arguments..memcached.get(arguments.key) />
+			<cfset stLocal.value = arguments.memcached.get(arguments.key) />
 			
 			<!--- catch nulls --->
 			<cfif NOT StructKeyExists(stLocal,"value")>
@@ -169,36 +169,19 @@
     </cffunction>
 	
 	<cffunction name="getItemWebskinStats" returntype="struct" output="false">
-		<cfargument name="items" type="array" required="true">
+		<cfargument name="qItems" type="query" required="true">
 		<cfargument name="typename" type="string" required="true">
 		
 		<cfset var q = querynew("webskin,num","varchar,varchar,integer")>
-		<cfset var stCount = structnew() />
-		<cfset var i = 0 />
-		<cfset var thistype = "" />
-		<cfset var webskin = "" />
 		<cfset var stResult = {} />
 		
-		<cfloop from="1" to="#arraylen(arguments.items)#" index="i">
-			<cfset thistype = listgetat(arguments.items[i].key,2,"_") />
-			<cfif thistype eq arguments.typename and listlen(arguments.items[i],"_") eq 6>
-				<cfset webskin = listgetat(arguments[i],5,"_") />
-				
-				<cfif not structkeyexists(stCount,typename)>
-					<cfset stCount[webskin] = 0 />
-				</cfif>
-				
-				<cfset stCount[webskin] = stCount[webskin] + 1 />
-			</cfif>
-		</cfloop>
-		
-		<cfloop collection="#stCount#" item="i">
-			<cfset queryaddrow(q) />
-			<cfset querysetcell(q,"webskin",i) />
-			<cfset querysetcell(q,"num",stCount[i]) />
-		</cfloop>
-		
-		<cfquery dbtype="query" name="q">select * from q order by webskin asc</cfquery>
+		<cfquery dbtype="query" name="q">
+			select 		webskin,count(key) as [num] 
+			from 		arguments.qItems 
+			where 		typename='#arguments.typename#'
+			group by 	webskin
+			order by 	webskin
+		</cfquery>
 		<cfset stResult.stats = q />
 
 		<cfquery dbtype="query" name="q">
@@ -213,29 +196,17 @@
 	</cffunction>
 
 	<cffunction name="getItemSizeStats" returntype="struct" output="false">
-		<cfargument name="items" type="array" required="true">
+		<cfargument name="qItems" type="query" required="true">
 		
 		<cfset var q = querynew("size,num","integer,integer")>
-		<cfset var st = structnew() />
-		<cfset var i = 0 />
-		<cfset var size = 0 />
 		<cfset var stResult = {} />
 		
-		<cfloop from="1" to="#arraylen(arguments.items)#" index="i">
-			<cfset size = "" & (int(arguments.items[i].size / 1024)) />
-			<cfif not structkeyexists(st,size)>
-				<cfset st[size] = 0 />
-			</cfif>
-			<cfset st[size] = st[size] + 1 />
-		</cfloop>
-		
-		<cfloop collection="#st#" item="i">
-			<cfset queryaddrow(q) />
-			<cfset querysetcell(q,"size",i) />
-			<cfset querysetcell(q,"num",st[i]) />
-		</cfloop>
-		
-		<cfquery dbtype="query" name="q">select * from q order by size asc</cfquery>
+		<cfquery dbtype="query" name="q">
+			select		CAST(size as INTEGER) as [size], count(*) as [num]
+			from		arguments.qItems
+			group by 	[size]
+			order by 	[size]
+		</cfquery>
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
@@ -249,51 +220,48 @@
 		<cfreturn stResult />
 	</cffunction>
 
-	<cffunction name="getItemTypeStats" returntype="query" output="false">
-		<cfargument name="items" type="array" required="true">
+	<cffunction name="getItemTypeStats" returntype="struct" output="false">
+		<cfargument name="qItems" type="query" required="true">
 		
 		<cfset var q = querynew("typename,objectsize,objectnum,webskinsize,webskinnum","varchar,bigint,integer,bigint,integer")>
 		<cfset var stObjectSize = structnew() />
 		<cfset var stObjectCount = structnew() />
 		<cfset var stWebskinSize = structnew() />
 		<cfset var stWebskinCount = structnew() />
-		<cfset var i = 0 />
-		<cfset var typename = "" />
 		<cfset var stResult = {} />
-		
-		<cfloop from="1" to="#arraylen(arguments.items)#" index="i">
-			<cfset typename = listgetat(arguments.items[i].key,2,"_") />
-			<cfif not structkeyexists(stObjectSize,typename)>
-				<cfset stObjectSize[typename] = 0 />
-				<cfset stObjectCount[typename] = 0 />
-				<cfset stWebskinSize[typename] = 0 />
-				<cfset stWebskinCount[typename] = 0 />
+
+		<cfloop query="arguments.qItems">
+			<cfif not structkeyexists(stObjectSize,arguments.qItems.typename)>
+				<cfset stObjectSize[arguments.qItems.typename] = 0 />
+				<cfset stObjectCount[arguments.qItems.typename] = 0 />
+				<cfset stWebskinSize[arguments.qItems.typename] = 0 />
+				<cfset stWebskinCount[arguments.qItems.typename] = 0 />
 			</cfif>
 			
-			<cfif listlen(arguments.items[i].key,"_") eq 3>
+			<cfif listlen(arguments.qItems.key,"_") eq 3>
 				<!--- object --->
-				<cfset stObjectSize[typename] = stObjectSize[typename] + arguments.items[i].size />
-				<cfset stObjectCount[typename] = stObjectCount[typename] + 1 />
+				<cfset stObjectSize[arguments.qItems.typename] = stObjectSize[arguments.qItems.typename] + arguments.qItems.size />
+				<cfset stObjectCount[arguments.qItems.typename] = stObjectCount[arguments.qItems.typename] + 1 />
 			<cfelse>
 				<!--- webskin --->
-				<cfset stWebskinSize[typename] = stWebskinSize[typename] + arguments.items[i].size />
-				<cfset stWebskinCount[typename] = stWebskinCount[typename] + 1 />
+				<cfset stWebskinSize[arguments.qItems.typename] = stWebskinSize[arguments.qItems.typename] + arguments.qItems.size />
+				<cfset stWebskinCount[arguments.qItems.typename] = stWebskinCount[arguments.qItems.typename] + 1 />
 			</cfif>
 		</cfloop>
 		
 		<cfloop collection="#stObjectSize#" item="i">
 			<cfset queryaddrow(q) />
 			<cfset querysetcell(q,"typename",i) />
-			<cfset querysetcell(q,"objectsize",stObjectSize[i]/1024) />
+			<cfset querysetcell(q,"objectsize",stObjectSize[i]) />
 			<cfset querysetcell(q,"objectnum",stObjectCount[i]) />
-			<cfset querysetcell(q,"webskinsize",stWebskinSize[i]/1024) />
+			<cfset querysetcell(q,"webskinsize",stWebskinSize[i]) />
 			<cfset querysetcell(q,"webskinnum",stWebskinCount[i]) />
 		</cfloop>
 		
 		<cfquery dbtype="query" name="q">select * from q order by typename asc</cfquery>
 		<cfset stResult.stats = q />
 
-		<cfquery dbtype="query" name="qItemTypeSummary">
+		<cfquery dbtype="query" name="q">
 			select 	sum(objectsize) as sumobjectsize, 
 					max(objectsize) as maxobjectsize, 
 					sum(objectnum) as sumobjectnum, 
@@ -316,17 +284,16 @@
 		<cfreturn stResult />
 	</cffunction>
 
-	<cffunction name="getItemExpiryStats" returntype="query" output="false">
-		<cfargument name="items" type="array" required="true">
+	<cffunction name="getItemExpiryStats" returntype="struct" output="false">
+		<cfargument name="qItems" type="query" required="true">
 		
-		<cfset var q = querynew("expires,num","date,integer")>
+		<cfset var q = querynew("expires,expires_epoch,num","date,bigint,integer")>
 		<cfset var stCount = structnew() />
-		<cfset var i = 0 />
 		<cfset var expires = "" />
 		<cfset var stResult = structnew() />
-		
-		<cfloop from="1" to="#arraylen(arguments.items)#" index="i">
-			<cfset expires = "" & int(arguments.items[i].expires/60/15) * 60 * 15 />
+
+		<cfloop query="arguments.qItems">
+			<cfset expires = "" & int(arguments.qItems.expires/60/15) * 60 * 15 />
 			
 			<cfif not structkeyexists(stCount,expires)>
 				<cfset stCount[expires] = 0 />
@@ -338,6 +305,7 @@
 		<cfloop collection="#stCount#" item="i">
 			<cfset queryaddrow(q) />
 			<cfset querysetcell(q,"expires",DateAdd("s", i, "January 1 1970 00:00:00")) />
+			<cfset querysetcell(q,"expires_epoch",i) />
 			<cfset querysetcell(q,"num",stCount[i]) />
 		</cfloop>
 		
@@ -355,8 +323,8 @@
 		<cfreturn stResult />
 	</cffunction>
 
-	<cffunction name="getApplicationStats" returntype="query" output="false">
-		<cfargument name="items" type="array" required="true">
+	<cffunction name="getApplicationStats" returntype="struct" output="false">
+		<cfargument name="qItems" type="query" required="true">
 		
 		<cfset var q = querynew("application,size,num","varchar,bigint,integer")>
 		<cfset var stCount = structnew() />
@@ -365,35 +333,18 @@
 		<cfset var app = "" />
 		<cfset var stResult = structnew() />
 		
-		<cfloop from="1" to="#arraylen(arguments.items)#" index="i">
-			<cfif refindnocase("^[^_]+_.*?_[\w\d]{8}-[\w\d]{4}-[\w\d]{4}-[\w\d]{16}",arguments.items[i].key)>
-				<cfset app = listgetat(arguments.items[i].key,1,"_") />
-				<cfset type = listgetat(arguments.items[i].key,2,"_") />
-				
-				<cfif not structkeyexists(stCount,app)>
-					<cfset stCount[app] = 0 />
-					<cfset stSize[app] = 0 />
-				</cfif>
-				
-				<cfset stCount[app] = stCount[app] + 1 />
-				<cfset stSize[app] = stSize[app] + arguments.items[i].size />
-			</cfif>
-		</cfloop>
-		
-		<cfloop collection="#stCount#" item="i">
-			<cfset queryaddrow(q) />
-			<cfset querysetcell(q,"application",i) />
-			<cfset querysetcell(q,"size",stSize[i]/1024) />
-			<cfset querysetcell(q,"num",stCount[i]) />
-		</cfloop>
-		
-		<cfquery dbtype="query" name="q">select * from q order by application asc</cfquery>
+		<cfquery dbtype="query" name="q">
+			select		application, count(*) as [num], sum([size]) as [size]
+			from		arguments.qItems
+			group by 	application
+			order by 	application asc
+		</cfquery>
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
 			select 	sum([size]) as sumsize, 
 					max([size]) as maxsize, 
-					max([num]) as maxnum, 
+					sum([num]) as sumnum, 
 					max([num]) as maxnum
 			from 	q
 		</cfquery>
@@ -405,7 +356,7 @@
 		<cfreturn stResult />
 	</cffunction>
 
-	<cffunction name="itemStats" returntype="array" output="false">
+	<cffunction name="getItems" returntype="query" output="false">
 		<cfargument name="server" type="string" required="true" />
 		<cfargument name="app" type="string" required="false" />
 		
@@ -413,26 +364,34 @@
 		<cfset var slabID = "" />
 		<cfset var hostname = rereplace(arguments.server,"[^/]+/([^:]+):\d+","\1") />
 		<cfset var port = rereplace(arguments.server,"[^/]+/[^:]+:(\d+)","\1") />
-		<cfset var items = arraynew(1) />
 		<cfset var keys = "" />
 		<cfset var item = "" />
 		<cfset var st = "" />
+		<cfset var qItems = querynew("key,size,expires,application,typename,webskin","varchar,integer,bigint,varchar,varchar,varchar") />
 		
 		<cfloop collection="#slabs#" item="slabID">
 			<cfset keys = easySocket(hostname,port,"stats cachedump #slabID# #slabs[slabID].number#") />
 			<cfloop from="1" to="#arraylen(keys)#" index="i">
 				<cfset item = listtoarray(keys[i]," ") />
 				<cfif not structkeyexists(arguments,"app") or listfirst(item[2],"_") eq arguments.app>
-					<cfset st = structnew() />
-					<cfset st["key"] = item[2] />
-					<cfset st["size"] = mid(item[3],2,100) />
-					<cfset st["expires"] = item[5] />
-					<cfset arrayappend(items,st) />
+					<cfset queryaddrow(qItems) />
+					<cfset querysetcell(qItems,"key",item[2]) />
+					<cfset querysetcell(qItems,"size",mid(item[3],2,100) / 1024) />
+					<cfset querysetcell(qItems,"expires",item[5]) />
+					<cfif listlen(item[2],"_") eq 3 or listlen(item[2],"_") eq 6>
+						<cfset querysetcell(qItems,"application",listgetat(item[2],1,"_")) />
+						<cfset querysetcell(qItems,"typename",listgetat(item[2],2,"_")) />
+						<cfif listlen(item[2],"_") eq 6>
+							<cfset querysetcell(qItems,"key",listgetat(item[2],5,"_")) />
+						</cfif>
+					<cfelse>
+						<cfset querysetcell(qItems,"application","Unknown") />
+					</cfif>
 				</cfif>
 			</cfloop>
 		</cfloop>
 		
-		<cfreturn items />
+		<cfreturn qItems />
 	</cffunction>
 
 	<cffunction name="slabStats" returntype="struct" output="false">

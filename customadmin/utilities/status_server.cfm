@@ -7,7 +7,7 @@
 
 <admin:header>
 
-<skin:view type="configMemcached" webskin="webtopBodyServer" />
+<skin:view typename="configMemcached" webskin="webtopBodyServer" />
 
 <admin:footer>
 

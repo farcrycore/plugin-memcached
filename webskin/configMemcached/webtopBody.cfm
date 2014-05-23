@@ -1,12 +1,12 @@
 <cfsetting enablecfoutputonly="true" />
 
-<cfset memcached = createobject("component","facry.plugins.memcached.packages.lib.memcached") />
+<cfset memcached = createobject("component","farcry.plugins.memcached.packages.lib.memcached") />
 
 <!--- get data --->
 <cfset start = getTickCount() />
-<cfset aUnavailable = memcached.getAvailableServers(application.fc.lib.objectbroker.memcached) />
+<cfset aServers = memcached.getAvailableServers(application.fc.lib.objectbroker.memcached) />
 <cfset aUnavailable = memcached.getUnavailableServers(application.fc.lib.objectbroker.memcached) />
-<cfset aUnavailable = memcached.getServerStats(application.fc.lib.objectbroker.memcached) />
+<cfset stServerStats = memcached.getServerStats(application.fc.lib.objectbroker.memcached) />
 <cfset processingTime = (getTickCount() - start) / 1000 />
 
 <cfoutput>
@@ -47,7 +47,7 @@
 				<tr>
 					<td>
 						#aServers[i].gethostname()# 
-						<cfif structkeyexists(url,"module")>
+						<cfif not structkeyexists(url,"id")>
 							( 
 								<a href="#application.fapi.fixURL(addvalues='module=utilities/status_server.cfm&server=#aServers[i].toString()#',removevalues='app')#">overview</a> 
 								| 
@@ -55,9 +55,9 @@
 							)
 						<cfelse>
 							( 
-								<a href="#application.fapi.getLink(type='configMemcached',view='webtopPageStandard',bodyView='webtopBodyServer',urlParameters='id=#url.id#&server=#aServers[i].toString()#&app=#application.applicationname#')#">overview</a>
+								<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyServer&server=#aServers[i].toString()#&app=#application.applicationname#',removevalues='id')#">overview</a>
 								| 
-								<a href="#application.fapi.getLink(type='configMemcached',view='webtopPageStandard',bodyView='webtopBodyApplication',urlParameters='id=#url.id#&server=#aServers[i].toString()#')#">this application</a>
+								<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyApplication&server=#aServers[i].toString()#',removevalues='id')#">this application</a>
 							)
 						</cfif>
 					</td>

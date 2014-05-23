@@ -3,38 +3,38 @@
 
 <cfimport taglib="/farcry/core/tags/webskin" prefix="skin">
 
-<cfset memcached = createobject("component","facry.plugins.memcached.packages.lib.memcached") />
+<cfset memcached = createobject("component","farcry.plugins.memcached.packages.lib.memcached") />
 
 <!--- get data --->
 <cfset start = getTickCount() />
-<cfset items = memcached.itemStats(url.server,url.app) />
-<cfset stSizes = memcached.getItemSizeStats(items) />
-<cfset stTypes = memcached.getItemTypeStats(items) />
-<cfset stExpiries = memcached.getItemExpiryStats(items) />
+<cfset qItems = memcached.getItems(url.server,url.app) />
+<cfset stSizes = memcached.getItemSizeStats(qItems) />
+<cfset stTypes = memcached.getItemTypeStats(qItems) />
+<cfset stExpiries = memcached.getItemExpiryStats(qItems) />
 <cfset processingTime = (getTickCount() - start) / 1000 />
 
-<skin:htmlHead>
+<skin:htmlHead><cfoutput>
 	<style>
 		.progress { margin-bottom: 5px; margin-right:5px; }
-		<cfif not structkeyexists(application.fc.stCSSLibraries,"fc-bootstrap")>
-			.progress .bar { color:##ffffff; }
+		<cfif structkeyexists(application.fc.stCSSLibraries,"fc-bootstrap")>
+			.progress .bar { color:##000000; }
 		<cfelse>
 			.progress .bar { background-color:##6096ee; }
 		</cfif>
 	</style>
-</skin:htmlHead>
+</cfoutput></skin:htmlHead>
 
 <cfoutput>
 	<h1>Memcache Status - #url.server# - #url.app#</h1>
 	<p>
-		<cfif structkeyexists(url,"module")>
-			<a href="#application.fapi.fixURL(addvalues='module=utilities/status.cfm&removevalues='server,app')#">&lt; back to servers</a> 
+		<cfif not structkeyexists(url,"id")>
+			<a href="#application.fapi.fixURL(addvalues='module=utilities/status.cfm',removevalues='server,app')#">&lt; back to servers</a> 
 			| 
 			<a href="#application.fapi.fixURL(addvalues='module=utilities/status_app.cfm&app=#application.applicationname#',removevalues='app')#">overview</a>
 		<cfelse>
-			<a href="#application.fapi.getLink(type='configMemcached',view='webtopPageStandard',bodyView='webtopBody',urlParameters='id=#url.id#')#">&lt; back to servers</a>
+			<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBody',removevalues='id')#">&lt; back to servers</a>
 			| 
-			<a href="#application.fapi.getLink(type='configMemcached',view='webtopPageStandard',bodyView='webtopBodyServer',urlParameters='id=#url.id#&server=#url.server#">overview</a>
+			<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyServer&server=#url.server#',removevalues='id')#">overview</a>
 		</cfif>
 	</p>
 	<p>Processing time: #numberformat(processingTime,"0.00")#s</p>
@@ -51,11 +51,7 @@
 			<cfloop query="stSizes.stats">
 				<tr>
 					<td width="20%">#stSizes.stats.size#</td>
-					<td width="80%">
-						<div class="progress progress-info progress-striped">
-							<div class="bar" style="width:#round(stSizes.stats.num / stSizes.maxnum * 100)#%;">&nbsp;#stSizes.stats.num#</div>
-						</div>
-					</div>
+					<td width="80%">#getProgressBar(stSizes.stats.num,stSizes.maxnum,stSizes.stats.num,"progress-info")#</td>
 				</tr>
 			</cfloop>
 		</tbody>
@@ -76,26 +72,10 @@
 			<cfloop query="stTypes.stats">
 				<tr>
 					<td width="20%">#stTypes.stats.typename#</td>
-					<td width="20%">
-						<div class="progress progress-info progress-striped">
-							<div class="bar" style="width:#round(stTypes.stats.objectnum / stTypes.maxobjectnum * 100)#%;">&nbsp;#stTypes.stats.objectnum#</div>
-						</div>
-					</td>
-					<td width="20%">
-						<div class="progress progress-success progress-striped">
-							<div class="bar" style="width:#round(stTypes.stats.objectsize / stTypes.maxobjectsize * 100)#%;">&nbsp;#numberformat(stTypes.stats.objectsize,"0.00")#</div>
-						</div>
-					</td>
-					<td width="20%">
-						<div class="progress progress-info progress-striped">
-							<div class="bar" style="width:#round(stTypes.stats.webskinnum / stTypes.maxwebskinnum * 100)#%;">&nbsp;#stTypes.stats.webskinnum#</div>
-						</div>
-					</td>
-					<td width="20%">
-						<div class="progress progress-success progress-striped">
-							<div class="bar" style="width:#round(stTypes.stats.webskinsize / stTypes.maxwebskinsize * 100)#%;">&nbsp;#numberformat(stTypes.stats.webskinsize,"0.00")#</div>
-						</div>
-					</td>
+					<td width="20%">#getProgressBar(stTypes.stats.objectnum,stTypes.maxobjectnum,stTypes.stats.objectnum,"progress-info")#</td>
+					<td width="20%">#getProgressBar(stTypes.stats.objectsize,stTypes.maxobjectsize,numberformat(stTypes.stats.objectsize,"0.00"),"progress-success")#</td>
+					<td width="20%">#getProgressBar(stTypes.stats.webskinnum,stTypes.maxwebskinnum,stTypes.stats.webskinnum,"progress-info")#</td>
+					<td width="20%">#getProgressBar(stTypes.stats.webskinsize,stTypes.maxwebskinsize,numberformat(stTypes.stats.webskinsize,"0.00"),"progress-success")#</td>
 				</tr>
 			</cfloop>
 		</tbody>
@@ -113,11 +93,7 @@
 			<cfloop query="stExpiries.stats">
 				<tr>
 					<td width="20%"><span title="#timeformat(stExpiries.stats.expires,"HH:mm")# #dateformat(stExpiries.stats.expires,"d mmm yy")#">#application.fapi.prettyDate(stExpiries.stats.expires,true)#</span></td>
-					<td width="80%">
-						<div class="progress progress-info progress-striped">
-							<div class="bar" style="width:#round(stExpiries.stats.num / stExpiries.maxnum * 100)#%;">&nbsp;#stExpiries.stats.num#</div>
-						</div>
-					</td>
+					<td width="80%">#getProgressBar(stExpiries.stats.num,stExpiries.maxnum,stExpiries.stats.num,"progress-info")#</td>
 				</tr>
 			</cfloop>
 		</tbody>
