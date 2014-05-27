@@ -1,4 +1,4 @@
-<cfsetting enablecfoutputonly="true" />
+<cfsetting enablecfoutputonly="true" requesttimeout="180" />
 
 <cfimport taglib="/farcry/core/tags/admin" prefix="admin" />
 
