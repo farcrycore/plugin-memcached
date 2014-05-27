@@ -13,6 +13,7 @@
 <cfset stExpiries = memcached.getItemExpiryStats(qItems,true) />
 <cfset processingTime = (getTickCount() - start) / 1000 />
 
+<skin:loadJS id="fc-jquery" />
 <skin:htmlHead><cfoutput>
 	<style>
 		.progress { margin-bottom: 5px; margin-right:5px; }
