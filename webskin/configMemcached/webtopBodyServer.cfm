@@ -24,17 +24,7 @@
 
 <cfoutput>
 	<h1>Memcache Status - #url.server# - Overview</h1>
-	<p>
-		<cfif not structkeyexists(url,"id")>
-			<a href="#application.fapi.fixURL(addvalues='module=utilities/status.cfm',removevalues='server')#">&lt; back to servers</a> 
-			| 
-			<a href="#application.fapi.fixURL(addvalues='module=utilities/status_app.cfm&app=#application.applicationname#')#">this application</a>
-		<cfelse>
-			<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBody',removevalues='id')#">&lt; back to servers</a>
-			| 
-			<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyApplication&server=#url.server#&app=#application.applicationname#',removevalues='id')#">this application</a>
-		</cfif>
-	</p>
+	<p><a href="#getServersURL()#">&lt; back to servers</a> | <a href="#getApplicationURL(url.server,application.applicationname)#">this application</a></p>
 	<p>Processing time: #numberformat(processingTime,"0.00")#s</p>
 	
 	<h2>Items by application</h2>
@@ -49,13 +39,7 @@
 		<tbody>
 			<cfloop query="stApplications.stats">
 				<tr>
-					<td width="20%">
-						<cfif not structkeyexists(url,"id")>
-							<a href="#application.fapi.fixURL(addvalues='module=utilities/status_app.cfm&app=#stApplications.stats.application#')#">#stApplications.stats.application#</a>
-						<cfelse>
-							<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyApplication&server=#url.server#&app=#stApplications.stats.application#',removevalues='id')#">#stApplications.stats.application#</a>
-						</cfif>
-					</td>
+					<td width="20%"><a href="#getApplicationURL(url.server,stApplications.stats.application)#">#stApplications.stats.application#</a></td>
 					<td width="40%">#getProgressBar(stApplications.stats.num,stApplications.maxnum,stApplications.stats.num,"progress-info")#</td>
 					<td width="40%">#getProgressBar(stApplications.stats.size,stApplications.maxsize,stApplications.stats.size,"progress-success")#</td>
 				</tr>

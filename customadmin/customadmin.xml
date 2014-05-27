@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Sample webtop XML config; remove comments to activate -->
 <webtop>
 	<section id="admin">
-		<subsection id="coapi">
-			<menu id="diagnostics">
-				<menuitem sequence="1000" label="Memcached" link="/admin/customadmin.cfm?plugin=memcached&amp;module=utilities/status.cfm" />
+		<subsection id="general" sequence="10" label="General Admin" permission="AdminGeneralTab">
+			<menu id="settings" sequence="10" label="Application Settings">
+				<menuitem id="objbrokersummary" label="Memcached Summary" link="/admin/customadmin.cfm?plugin=memcached&amp;module=utilities/status.cfm" />
 			</menu>
 		</subsection>
 	</section>

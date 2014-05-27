@@ -328,46 +328,208 @@
 		</cfif>	
 	</cffunction>
 	
-	<cffunction name="isCacheable" access="private" output="false" returntype="boolean" hint="Utility function for addWebskin - returns true if the conditions for caching are met">
+	<cffunction name="countUncacheable" access="private" output="false" returntype="void" hint="Keeps track of what is deemed uncacheable">
+		<cfargument name="typename" type="string" required="true" />
+		<cfargument name="template" type="string" required="false" />
+		<cfargument name="reason" type="string" required="true" />
+
+		<cfset var stUncacheable = "" />
+
+		<cfif structkeyexists(arguments,"action") and arguments.action eq "read">
+			<cfreturn>
+		</cfif>
+
+		<cfif not structkeyexists(application,"stCOAPI")>
+			<!--- application not initialized --->
+			<cfreturn>
+		</cfif>
+
+		<cfif not structkeyexists(application.stCOAPI,arguments.typename)>
+			<!--- invalid typename --->
+			<cfreturn>
+		</cfif>
+
+		<cfif structkeyexists(arguments,"template") and not structkeyexists(application.stCOAPI[arguments.typename].stWebskins,arguments.template)>
+			<!--- invalid webskin --->
+			<cfreturn>
+		</cfif>
+
+		<cfif structkeyexists(arguments,"template")>
+			<cfif not structkeyexists(application.stCOAPI[arguments.typename].stWebskins[arguments.template],"stUncacheable")>
+				<cfset application.stCOAPI[arguments.typename].stWebskins[arguments.template]["stUncacheable"] = structnew() />
+				<cfset application.stCOAPI[arguments.typename].stWebskins[arguments.template]["stUncacheable"]["mode"] = 0 />
+				<cfset application.stCOAPI[arguments.typename].stWebskins[arguments.template]["stUncacheable"]["settings"] = 0 />
+				<cfset application.stCOAPI[arguments.typename].stWebskins[arguments.template]["stUncacheable"]["post"] = 0 />
+			</cfif>
+
+			<cfset stUncacheable = application.stCOAPI[arguments.typename].stWebskins[arguments.template]["stUncacheable"] />
+		<cfelse>
+			<cfif not structkeyexists(application.stCOAPI[arguments.typename],"stUncacheable")>
+				<cfset application.stCOAPI[arguments.typename]["stUncacheable"] = structnew() />
+				<cfset application.stCOAPI[arguments.typename]["stUncacheable"]["mode"] = 0 />
+				<cfset application.stCOAPI[arguments.typename]["stUncacheable"]["settings"] = 0 />
+				<cfset application.stCOAPI[arguments.typename]["stUncacheable"]["post"] = 0 />
+			</cfif>
+
+			<cfset stUncacheable = application.stCOAPI[arguments.typename]["stUncacheable"] />
+		</cfif>
+
+		<cfset stUncacheable[arguments.reason] = stUncacheable[arguments.reason] + 1 />
+	</cffunction>
+
+	<cffunction name="getTypeUncacheableStats" returntype="struct" output="false">
+		
+		<cfset var q = querynew("typename,bObjectBroker,modenum,settingsnum","varchar,bit,bigint,bigint")>
+		<cfset var typename = "" />
+		<cfset var stResult = {} />
+
+		<cfloop collection="#application.stCOAPI#" item="typename">
+			<cfset queryaddrow(q) />
+			<cfset querysetcell(q,"typename",typename) />
+			<cfset querysetcell(q,"typename",application.stCOAPI[typename].bObjectBroker) />
+			<cfif structkeyexists(application.stCOAPI[typename],"stUncacheable")>
+				<cfset querysetcell(q,"modenum",application.stCOAPI[typename].stUncacheable["mode"]) />
+				<cfset querysetcell(q,"settingsnum",application.stCOAPI[typename].stUncacheable["settings"]) />
+			<cfelse>
+				<cfset querysetcell(q,"modenum",0) />
+				<cfset querysetcell(q,"settingsnum",0) />
+			</cfif>
+		</cfloop>
+		
+		<cfquery dbtype="query" name="q">select * from q order by typename asc</cfquery>
+		<cfset stResult.stats = q />
+
+		<cfquery dbtype="query" name="q">
+			select 	sum(modenum) as summodenum, 
+					max(modenum) as maxmodenum, 
+					sum(settingsnum) as sumsettingsnum, 
+					max(settingsnum) as maxsettingsnum, 
+			from 	q
+		</cfquery>
+		<cfset stResult.summodenum = q.summodenum />
+		<cfset stResult.maxmodenum = q.maxmodenum />
+		<cfset stResult.sumsettingsnum = q.sumsettingsnum />
+		<cfset stResult.maxsettingsnum = q.maxsettingsnum />
+		
+		<cfreturn stResult />
+	</cffunction>
+
+	<cffunction name="getTypeWebskinUncacheableStats" returntype="struct" output="false">
+		<cfargument name="typename" type="string" required="false" />
+		
+		<cfset var q = querynew("typename,webskin,bObjectBroker,modenum,settingsnum","varchar,varchar,bit,bigint,bigint")>
+		<cfset var typename = "" />
+		<cfset var webskins = "" />
+		<cfset var stResult = {} />
+
+		<cfloop collection="#application.stCOAPI#" item="typename">
+			<cfif not structkeyexists(arguments,"typename") or arguments.typename eq typename>
+				<cfloop collection="#application.stCOAPI[typename].stWebskins#" item="webskin">
+					<cfset queryaddrow(q) />
+					<cfset querysetcell(q,"typename",typename) />
+					<cfset querysetcell(q,"webskin",webskin) />
+					<cfset querysetcell(q,"bObjectBroker",application.stCOAPI[typename].stWebskins[webskin].cacheStatus eq 1) />
+
+					<cfif structkeyexists(application.stCOAPI[typename].stWebskins[webskin],"stUncacheable")>
+						<cfset querysetcell(q,"modenum",application.stCOAPI[typename].stWebskins[webskin].stUncacheable.mode) />
+						<cfset querysetcell(q,"settingsnum",application.stCOAPI[typename].stWebskins[webskin].stUncacheable.settings) />
+					<cfelse>
+						<cfset querysetcell(q,"modenum",0) />
+						<cfset querysetcell(q,"settingsnum",0) />
+					</cfif>
+				</cfloop>
+			</cfif>
+		</cfloop>
+		
+		<cfquery dbtype="query" name="q">select * from q order by typename asc, webskin asc</cfquery>
+		<cfset stResult.stats = q />
+
+		<cfquery dbtype="query" name="q">
+			select 	sum(modenum) as summodenum, 
+					max(modenum) as maxmodenum, 
+					sum(settingsnum) as sumsettingsnum, 
+					max(settingsnum) as maxsettingsnum
+			from 	q
+		</cfquery>
+		<cfset stResult.summodenum = q.summodenum />
+		<cfset stResult.maxmodenum = q.maxmodenum />
+		<cfset stResult.sumsettingsnum = q.sumsettingsnum />
+		<cfset stResult.maxsettingsnum = q.maxsettingsnum />
+		
+		<cfreturn stResult />
+	</cffunction>
+
+	<cffunction name="isCacheable" access="public" output="false" returntype="boolean" hint="Utility function for addWebskin - returns true if the conditions for caching are met">
 		<cfargument name="typename" type="string" required="true" />
 		<cfargument name="template" type="string" required="false" />
 		<cfargument name="action" type="string" required="false" default="read" />
 		
+		<cfset var baseCheck = true />
+
 		<cfparam name="request.mode.flushcache" default="0">
 		<cfparam name="request.mode.showdraft" default="0">
-		<cfparam name="request.mode.lvalidstatus" default="0">
+		<cfparam name="request.mode.lvalidstatus" default="approved">
+		<cfparam name="request.mode.tracewebskins" default="0">
+		<cfparam name="request.mode.design" default="0">
 		
-		<cfset var baseCheck = application.bObjectBroker and
+		<!--- Mode --->
+		<cfset baseCheck = baseCheck and application.bObjectBroker and
 				  not (
 				  	structKeyExists(request,"mode") AND 
 				  	(
 				  		(arguments.action eq "read" and request.mode.flushcache EQ 1) OR 
 				  		request.mode.showdraft EQ 1 OR 
-				  		request.mode.lvalidstatus NEQ "approved"
+				  		request.mode.lvalidstatus NEQ "approved" OR
+				  		request.mode.tracewebskins EQ 1 OR 
+				  		request.mode.design EQ 1
 				  	) 
-				  ) and
-				  not (structKeyExists(url, "updateapp") AND url.updateapp EQ 1) and
-				  (
-				  	isdefined("application.stCOAPI.#arguments.typename#.bObjectBroker") and 
-				  	application.stcoapi[arguments.typename].bObjectBroker
 				  ) />
+		<cfif baseCheck eq false>
+			<cfset countUncacheable(argumentCollection=arguments,reason="mode") />
+			<cfreturn false />
+		</cfif>
+
+		<!--- Cache settings --->
+		<cfset baseCheck = baseCheck and not (structKeyExists(url, "updateapp") AND url.updateapp EQ 1) and
+		  (
+		  	isdefined("application.stCOAPI.#arguments.typename#.bObjectBroker") and 
+		  	application.stcoapi[arguments.typename].bObjectBroker
+		  ) />
+		<cfif baseCheck eq false>
+			<cfset countUncacheable(argumentCollection=arguments,reason="settings") />
+			<cfreturn false />
+		</cfif>
 		
 		<cfif structkeyexists(arguments,"template")>
-			<cfset baseCheck = baseCheck and
-					  not (
-					  	isDefined("form") AND 
-					  	not structIsEmpty(form) and 
-					  	application.coapi.coapiadmin.getWebskinCacheFlushOnFormPost(typename=arguments.typename,template=arguments.template)
-					  ) and
-					  not (
-					  	structKeyExists(request,"mode") AND 
-					  	(
-					  		request.mode.tracewebskins eq 1 OR 
-					  		request.mode.design eq 1
-					  	) 
-					  ) and
-					  structKeyExists(application.stcoapi[arguments.typename].stWebskins, arguments.template) and
-					  application.stcoapi[arguments.typename].stWebskins[arguments.template].cacheStatus EQ 1 />
+			<!--- Form post --->
+			<cfset baseCheck = baseCheck and not (
+			  	isDefined("form") AND 
+			  	not structIsEmpty(form) and 
+			  	application.coapi.coapiadmin.getWebskinCacheFlushOnFormPost(typename=arguments.typename,template=arguments.template)
+			  ) />
+			<cfif baseCheck eq false>
+				<cfset countUncacheable(argumentCollection=arguments,reason="post") />
+				<cfreturn false />
+			</cfif>
+			
+			<cfset baseCheck = baseCheck and not (
+			  	structKeyExists(request,"mode") AND 
+			  	(
+			  		request.mode.tracewebskins eq 1 OR 
+			  		request.mode.design eq 1
+			  	) 
+			  ) />
+			<cfif baseCheck eq false>
+				<cfset countUncacheable(argumentCollection=arguments,reason="mode") />
+				<cfreturn false />
+			</cfif>
+
+			<cfset baseCheck = baseCheck and structKeyExists(application.stcoapi[arguments.typename].stWebskins, arguments.template) 
+			  and application.stcoapi[arguments.typename].stWebskins[arguments.template].cacheStatus EQ 1 />
+			<cfif baseCheck eq false>
+				<cfset countUncacheable(argumentCollection=arguments,reason="settings") />
+				<cfreturn false />
+			</cfif>
 		</cfif>
 		
 		<cfreturn baseCheck />
@@ -433,7 +595,7 @@
 		<cfargument name="typename" required="true" type="string">
 		
 		<cfif isCacheable(typename=arguments.typename,action="write") and structkeyexists(arguments.stObj, "objectid")>
-			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.stObj.objectid#",arguments.stObj) />
+			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.stObj.objectid#",arguments.stObj,24*60*60) />
 			<cfreturn true />
 		</cfif>
 		
@@ -545,7 +707,7 @@
 			and isdefined("arguments.config.locator") and len(trim(arguments.config.locator))
 			and isdefined("arguments.config.operationTimeout") and len(trim(arguments.config.operationTimeout))>
 			
-			<cfset this.memcached = application.fc.lib.memcached.initializeClient(arguments.config) />
+			<cfset this.memcached = createobject("component","farcry.plugins.memcached.packages.lib.memcached").initializeClient(arguments.config) />
 			
 			<cfset this.pull_total = 0 />
 			<cfset this.pull_count = 0 />

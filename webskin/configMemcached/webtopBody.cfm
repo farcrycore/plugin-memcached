@@ -45,22 +45,7 @@
 			<cfloop from="1" to="#arraylen(aServers)#" index="i">
 				<cfset name = aServers[i].toString() />
 				<tr>
-					<td>
-						#aServers[i].gethostname()# 
-						<cfif not structkeyexists(url,"id")>
-							( 
-								<a href="#application.fapi.fixURL(addvalues='module=utilities/status_server.cfm&server=#aServers[i].toString()#',removevalues='app')#">overview</a> 
-								| 
-								<a href="#application.fapi.fixURL(addvalues='module=utilities/status_app.cfm&server=#aServers[i].toString()#&app=#application.applicationname#')#">this application</a> 
-							)
-						<cfelse>
-							( 
-								<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyServer&server=#aServers[i].toString()#&app=#application.applicationname#',removevalues='id')#">overview</a>
-								| 
-								<a href="#application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyApplication&server=#aServers[i].toString()#',removevalues='id')#">this application</a>
-							)
-						</cfif>
-					</td>
+					<td>#aServers[i].gethostname()# ( <a href="#getServerURL(aServers[i].toString())#">overview</a> | <a href="#getApplicationURL(aServers[i].toString(),application.applicationname)#">this application</a> )</td>
 					<td>#aServers[i].getPort()#</td>
 					<td>#not aServers[i].isUnresolved()#</td>
 					<cfif aServers[i].isUnresolved()>

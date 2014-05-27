@@ -53,4 +53,51 @@
 		<cfreturn html>
 	</cffunction>
 
+	<cffunction name="isNewWebtop" access="public" output="false" returntype="boolean">
+
+		<cfreturn structkeyexists(url,"id") />
+	</cffunction>
+
+	<cffunction name="getServersURL" access="public" output="false" returntype="string">
+
+		<cfif isNewWebtop()>
+			<cfreturn application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBody',removevalues='id,server,app,cachetype') />
+		<cfelse>
+			<cfreturn application.fapi.fixURL(addvalues='module=utilities/status.cfm',removevalues='server,app,cachetype') /> 
+		</cfif>
+	</cffunction>
+
+	<cffunction name="getServerURL" access="public" output="false" returntype="string">
+		<cfargument name="server" type="string" required="true" />
+
+		<cfif isNewWebtop()>
+			<cfreturn application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyServer&server=#arguments.server#',removevalues='id,app,cachetype') />
+		<cfelse>
+			<cfreturn application.fapi.fixURL(addvalues='module=utilities/status_server.cfm&server=#arguments.server#',removevalues='app,cachetype') />
+		</cfif>
+	</cffunction>
+
+	<cffunction name="getApplicationURL" access="public" output="false" returntype="string">
+		<cfargument name="server" type="string" required="true" />
+		<cfargument name="app" type="string" required="true" />
+
+		<cfif isNewWebtop()>
+			<cfreturn application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyApplication&server=#arguments.server#&app=#arguments.app#',removevalues='id,cachetype') />
+		<cfelse>
+			<cfreturn application.fapi.fixURL(addvalues='module=utilities/status_app.cfm&server=#arguments.server#&app=#arguments.app#',removevalues='cachetype') />
+		</cfif>
+	</cffunction>
+
+	<cffunction name="getTypeURL" access="public" output="false" returntype="string">
+		<cfargument name="server" type="string" required="true" />
+		<cfargument name="app" type="string" required="true" />
+		<cfargument name="typename" type="string" required="true" />
+
+		<cfif isNewWebtop()>
+			<cfreturn application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyType&server=#arguments.server#&app=#arguments.app#&cachetype=#arguments.typename#',removevalues='id') />
+		<cfelse>
+			<cfreturn application.fapi.fixURL(addvalues='module=utilities/status_type.cfm&server=#arguments.server#&app=#arguments.app#&cachetype=#arguments.typename#',removevalues='') />
+		</cfif>
+	</cffunction>
+
 </cfcomponent>
