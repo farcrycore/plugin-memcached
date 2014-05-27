@@ -20,6 +20,7 @@
 			.progress .bar { color:##000000; }
 		<cfelse>
 			.progress .bar { background-color:##6096ee; }
+			.btn.active { font-weight:bold; }
 		</cfif>
 	</style>
 	<script type="text/javascript">
