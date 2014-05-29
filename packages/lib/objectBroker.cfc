@@ -380,16 +380,16 @@
 	<cffunction name="getTypeUncacheableStats" returntype="struct" output="false">
 		
 		<cfset var q = querynew("typename,bObjectBroker,modenum,settingsnum","varchar,bit,bigint,bigint")>
-		<cfset var typename = "" />
+		<cfset var webskinTypename = "" />
 		<cfset var stResult = {} />
 
-		<cfloop collection="#application.stCOAPI#" item="typename">
+		<cfloop collection="#application.stCOAPI#" item="webskinTypename">
 			<cfset queryaddrow(q) />
-			<cfset querysetcell(q,"typename",typename) />
-			<cfset querysetcell(q,"typename",application.stCOAPI[typename].bObjectBroker) />
-			<cfif structkeyexists(application.stCOAPI[typename],"stUncacheable")>
-				<cfset querysetcell(q,"modenum",application.stCOAPI[typename].stUncacheable["mode"]) />
-				<cfset querysetcell(q,"settingsnum",application.stCOAPI[typename].stUncacheable["settings"]) />
+			<cfset querysetcell(q,"typename",webskinTypename) />
+			<cfset querysetcell(q,"typename",application.stCOAPI[webskinTypename].bObjectBroker) />
+			<cfif structkeyexists(application.stCOAPI[webskinTypename],"stUncacheable")>
+				<cfset querysetcell(q,"modenum",application.stCOAPI[webskinTypename].stUncacheable["mode"]) />
+				<cfset querysetcell(q,"settingsnum",application.stCOAPI[webskinTypename].stUncacheable["settings"]) />
 			<cfelse>
 				<cfset querysetcell(q,"modenum",0) />
 				<cfset querysetcell(q,"settingsnum",0) />
@@ -418,21 +418,21 @@
 		<cfargument name="typename" type="string" required="false" />
 		
 		<cfset var q = querynew("typename,webskin,bObjectBroker,modenum,settingsnum","varchar,varchar,bit,bigint,bigint")>
-		<cfset var typename = "" />
+		<cfset var webskinTypename = "" />
 		<cfset var webskins = "" />
 		<cfset var stResult = {} />
 
-		<cfloop collection="#application.stCOAPI#" item="typename">
-			<cfif not structkeyexists(arguments,"typename") or arguments.typename eq typename>
-				<cfloop collection="#application.stCOAPI[typename].stWebskins#" item="webskin">
+		<cfloop collection="#application.stCOAPI#" item="webskinTypename">
+			<cfif not structkeyexists(arguments,"typename") or arguments.typename eq webskinTypename>
+				<cfloop collection="#application.stCOAPI[webskinTypename].stWebskins#" item="webskin">
 					<cfset queryaddrow(q) />
-					<cfset querysetcell(q,"typename",typename) />
+					<cfset querysetcell(q,"typename",webskinTypename) />
 					<cfset querysetcell(q,"webskin",webskin) />
-					<cfset querysetcell(q,"bObjectBroker",application.stCOAPI[typename].stWebskins[webskin].cacheStatus eq 1) />
+					<cfset querysetcell(q,"bObjectBroker",application.stCOAPI[webskinTypename].stWebskins[webskin].cacheStatus eq 1) />
 
-					<cfif structkeyexists(application.stCOAPI[typename].stWebskins[webskin],"stUncacheable")>
-						<cfset querysetcell(q,"modenum",application.stCOAPI[typename].stWebskins[webskin].stUncacheable.mode) />
-						<cfset querysetcell(q,"settingsnum",application.stCOAPI[typename].stWebskins[webskin].stUncacheable.settings) />
+					<cfif structkeyexists(application.stCOAPI[webskinTypename].stWebskins[webskin],"stUncacheable")>
+						<cfset querysetcell(q,"modenum",application.stCOAPI[webskinTypename].stWebskins[webskin].stUncacheable.mode) />
+						<cfset querysetcell(q,"settingsnum",application.stCOAPI[webskinTypename].stWebskins[webskin].stUncacheable.settings) />
 					<cfelse>
 						<cfset querysetcell(q,"modenum",0) />
 						<cfset querysetcell(q,"settingsnum",0) />
