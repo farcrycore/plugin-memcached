@@ -175,7 +175,12 @@
 		<cfset var stResult = {} />
 		
 		<cfquery dbtype="query" name="q">
-			select 		webskin,count(key) as [num], sum([size]) as [size]
+			<cfif application.dbType EQ "mssql">
+				select 		webskin,count(key) as [num], sum([size]) as [size]
+			</cfif>
+			<cfif application.dbType EQ "mysql">
+				select 		webskin,count(key) as num, sum(size) as size
+			</cfif>
 			from 		arguments.qItems 
 			where		webskin<>''
 			group by 	webskin
@@ -184,10 +189,18 @@
 		<cfset stResult.stats = q />
 
 		<cfquery dbtype="query" name="q">
-			select 	sum([num]) as sumnum, 
-					max([num]) as maxnum, 
-					max([size]) as sumsize, 
-					max([size]) as maxsize 
+			<cfif application.dbType EQ "mssql">
+				select 	sum([num]) as sumnum, 
+						max([num]) as maxnum, 
+						max([size]) as sumsize, 
+						max([size]) as maxsize 
+			</cfif>
+			<cfif application.dbType EQ "mysql">
+				select 	sum(num) as sumnum, 
+						max(num) as maxnum, 
+						max(size) as sumsize, 
+						max(size) as maxsize 
+			</cfif>
 			from 	q
 		</cfquery>
 		<cfif q.recordcount>
@@ -212,17 +225,32 @@
 		<cfset var stResult = {} />
 		
 		<cfquery dbtype="query" name="q">
-			select		CAST(size as INTEGER) as [size], count(*) as [num]
-			from		arguments.qItems
-			group by 	[size]
-			order by 	[size]
+			<cfif application.dbType EQ "mssql">
+				select		CAST(size as INTEGER) as [size], count(*) as [num]
+				from		arguments.qItems
+				group by 	[size]
+				order by 	[size]
+			</cfif>
+			<cfif application.dbType EQ "mysql">
+				select		CAST(size as INTEGER) as size, count(*) as num
+				from		arguments.qItems
+				group by 	size
+				order by 	size
+			</cfif>
 		</cfquery>
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			select 	sum([num]) as sumnum, 
-					max([num]) as maxnum 
-			from 	q
+			<cfif application.dbType EQ "mssql">
+				select 	sum([num]) as sumnum, 
+						max([num]) as maxnum 
+				from 	q
+			</cfif>
+			<cfif application.dbType EQ "mysql">
+				select 	sum(num) as sumnum, 
+						max(num) as maxnum 
+				from 	q
+			</cfif>
 		</cfquery>
 		<cfset stResult.sumnum = q.sumnum />
 		<cfset stResult.maxnum = q.maxnum />
@@ -335,9 +363,16 @@
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			select 	sum([num]) as sumnum, 
-					max([num]) as maxnum
-			from 	q
+			<cfif application.dbType EQ "mssql">
+				select 	sum([num]) as sumnum, 
+						max([num]) as maxnum
+				from 	q
+			</cfif>
+			<cfif application.dbType EQ "mysql">
+				select 	sum(num) as sumnum, 
+						max(num) as maxnum
+				from 	q
+			</cfif>
 		</cfquery>
 		<cfset stResult.sumnum = q.sumnum />
 		<cfset stResult.maxnum = q.maxnum />
@@ -373,7 +408,12 @@
 		<cfset var stResult = structnew() />
 		
 		<cfquery dbtype="query" name="q">
-			select		application, count(*) as [num], sum([size]) as [size]
+			<cfif application.dbType EQ "mssql">
+				select		application, count(*) as [num], sum([size]) as [size]
+			</cfif>
+			<cfif application.dbType EQ "mysql">
+				select		application, count(*) as num, sum(size) as size
+			</cfif>
 			from		arguments.qItems
 			group by 	application
 			order by 	application asc
@@ -381,11 +421,20 @@
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			select 	sum([size]) as sumsize, 
-					max([size]) as maxsize, 
-					sum([num]) as sumnum, 
-					max([num]) as maxnum
-			from 	q
+			<cfif application.dbType EQ "mssql">
+				select 	sum([size]) as sumsize, 
+						max([size]) as maxsize, 
+						sum([num]) as sumnum, 
+						max([num]) as maxnum
+				from 	q
+			</cfif>
+			<cfif application.dbType EQ "mysql">
+				select 	sum(size) as sumsize, 
+						max(size) as maxsize, 
+						sum(num) as sumnum, 
+						max(num) as maxnum
+				from 	q
+			</cfif>
 		</cfquery>
 		<cfset stResult.sumsize = q.sumsize />
 		<cfset stResult.maxsize = q.maxsize />
