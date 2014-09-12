@@ -1,5 +1,7 @@
 # Memcached Plugin
 
+NOTE: This plugin is compatible with FarCry 7.1.0 and over.
+
 *Memcached is a commercial plugin (available with the FarCry Commercial Licence)*
 
 Memcached replaces the default object and webskin caching mechanism in Core with 

@@ -13,17 +13,17 @@
 		<cfset var locatorType = "" />
 		<cfset var connectionFactory = "" />
 		
-		<cflog type="information" file="#application.applicationname#_memcached" text="Creating memcached client" />
+		<cflog type="information" application="true" file="memcached" text="Creating memcached client" />
 		
 		<cfif refindnocase(".*\.cfg.\w+.cache.amazonaws.com",arguments.config.servers)>
 			
 			<cfset addresses = javaLoader.create("net.spy.memcached.AddrUtil").getAddresses(
 				listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
 			) />
-			<cflog type="information" file="#application.applicationname#_memcached" text="Configuration nodes: #addresses.toString()#" />
+			<cflog type="information" application="true" file="memcached" text="Configuration nodes: #addresses.toString()#" />
 			
 	        <cfset memcached = javaLoader.create("net.spy.memcached.MemcachedClient").init(addresses) />
-			<cflog type="information" file="#application.applicationname#_memcached" text="Memcached client set up" />
+			<cflog type="information" application="true" file="memcached" text="Memcached client set up" />
 			
 		<cfelse>
 		
@@ -36,15 +36,15 @@
 				.setOpTimeout(JavaCast( "int", arguments.config.operationTimeout ) )
 				.setClientMode(clientMode["Static"])
 				.build() />
-			<cflog type="information" file="#application.applicationname#_memcached" text="Configuration: #connectionFactory.toString()#" />
+			<cflog type="information" application="true" file="memcached" text="Configuration: #connectionFactory.toString()#" />
 			
 			<cfset addresses = javaLoader.create("net.spy.memcached.AddrUtil").getAddresses(
 				listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
 			) />
-			<cflog type="information" file="#application.applicationname#_memcached" text="Server nodes: #addresses.toString()#" />
+			<cflog type="information" application="true" file="memcached" text="Server nodes: #addresses.toString()#" />
 			
 	        <cfset memcached = javaLoader.create("net.spy.memcached.MemcachedClient").init(connectionFactory, addresses) />
-			<cflog type="information" file="#application.applicationname#_memcached" text="Memcached client set up" />
+			<cflog type="information" application="true" file="memcached" text="Memcached client set up" />
 			
 		</cfif>
 
@@ -63,11 +63,11 @@
 			<cfset stLocal.value = arguments.memcached.get(arguments.key) />
 			
 			<!--- catch nulls --->
-			<cfif NOT StructKeyExists(stLocal,"value")>
+			<cfif StructKeyExists(stLocal,"value")>
+				<cfset stLocal.value = deserializeByteArray(stLocal.value) />
+			<cfelse>
 				<cfset stLocal.value = structnew() />
 			</cfif>
-			
-			<cfset stLocal.value = deserializeByteArray(stLocal.value) />
 			
 			<cfcatch>
 				<cfset stLocal.value = structnew() />
@@ -87,7 +87,7 @@
 			<cfset arguments.memcached.set(arguments.key, min(arguments.timeout,60*60*24*30), serializeByteArray(arguments.data)) />
 			
 			<cfcatch>
-				<cflog type="error" file="#application.applicationname#_memcached" text="Error adding to cache: #cfcatch.message#" />
+				<cflog type="error" application="true" file="memcached" text="Error adding to cache: #cfcatch.message#" />
 				<cfset application.fc.lib.error.logData(application.fc.lib.error.normalizeError(cfcatch)) />
 			</cfcatch>
 		</cftry>

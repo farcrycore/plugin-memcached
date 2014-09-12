@@ -4,9 +4,6 @@
 		<cfargument name="bFlush" default="false" type="boolean" hint="Allows the application to force a total flush of the objectbroker." />
 		
 		<cfif arguments.bFlush OR NOT structKeyExists(application, "objectBroker") OR NOT structKeyExists(application, "objectrecycler") OR NOT structKeyExists(this,"c")>
-			<!--- This Java object gathers objects that were put in the broker but marked for garbage collection --->
-			<cfset application.objectrecycler =  createObject("java", "java.lang.ref.ReferenceQueue") />
-			
 			<!--- Set up cache replacement queue --->
 			<cfset cacheInitialise() />
 		</cfif>	
@@ -15,7 +12,7 @@
 	</cffunction>
 	
 	<cffunction name="GetFromObjectBroker" access="public" output="false" returntype="struct">
-		<cfargument name="ObjectID" required="yes" type="UUID">
+		<cfargument name="ObjectID" required="yes" type="string">
 		<cfargument name="typename" required="true" type="string">
 		
 		<cfif isCacheable(typename=arguments.typename,action="read")>
@@ -492,8 +489,11 @@
 		<!--- Cache settings --->
 		<cfset baseCheck = baseCheck and not (structKeyExists(url, "updateapp") AND url.updateapp EQ 1) and
 		  (
-		  	isdefined("application.stCOAPI.#arguments.typename#.bObjectBroker") and 
-		  	application.stcoapi[arguments.typename].bObjectBroker
+		  	listfindnocase("fulookup,config,navid,catid",arguments.typename)
+		  	OR (
+			  isdefined("application.stCOAPI.#arguments.typename#.bObjectBroker") and 
+			  application.stcoapi[arguments.typename].bObjectBroker
+			)
 		  ) />
 		<cfif baseCheck eq false>
 			<cfset countUncacheable(argumentCollection=arguments,reason="settings") />
@@ -593,9 +593,14 @@
 	<cffunction name="AddToObjectBroker" access="public" output="true" returntype="boolean">
 		<cfargument name="stObj" required="yes" type="struct">
 		<cfargument name="typename" required="true" type="string">
+		<cfargument name="key" required="false" type="string">
 		
-		<cfif isCacheable(typename=arguments.typename,action="write") and structkeyexists(arguments.stObj, "objectid")>
-			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.stObj.objectid#",arguments.stObj,24*60*60) />
+		<cfif not structkeyexists(arguments,"key") and structkeyexists(arguments.stObj,"objectid")>
+			<cfset arguments.key = arguments.stObj.objectid />
+		</cfif>
+
+		<cfif isCacheable(typename=arguments.typename,action="write") and structkeyexists(arguments,"key")>
+			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.key#",arguments.stObj,24*60*60) />
 			<cfreturn true />
 		</cfif>
 		
@@ -696,11 +701,16 @@
 		
 		<cfif not structkeyexists(arguments,"config")>
 			<cfif isdefined("application.config.memcached")>
-				<cfset arguments.config = application.config.memcached />
+				<cfset arguments.config = duplicate(application.config.memcached) />
+				<cfif isdefined("application.config_readonly.memcached")>
+					<cfset structappend(arguments.config,application.config_readonly.memcached) />
+				</cfif>
 			<cfelse>
 				<cfset arguments.config = structnew() />
 			</cfif>
 		</cfif>
+
+		<cfset this.config = arguments.config />
 		
 		<cfif isdefined("arguments.config.servers") and len(trim(arguments.config.servers))
 			and isdefined("arguments.config.protocol") and len(trim(arguments.config.protocol))
@@ -714,9 +724,9 @@
 			<cfset this.add_total = 0 />
 			<cfset this.add_count = 0 />
 		<cfelse>
-			<cflog type="information" file="#application.applicationname#_memcached" text="No config for memcached" />
+			<cflog type="information" application="true" file="memcached" text="No config for memcached" />
 			<cfif structkeyexists(this,"memcached")>
-				<cflog type="information" file="#application.applicationname#_memcached" text="Removing memcached client" />
+				<cflog type="information" application="true" file="memcached" text="Removing memcached client" />
 				<cfset structdelete(this,"memcached") />
 			</cfif>
 		</cfif>
@@ -727,6 +737,7 @@
 		
 		<cfset var value = structnew() />
 		<cfset var starttime = getTickCount() />
+		<cfset var id = "memcached-get-#application.fapi.getUUID()#" />
 
 		<cfif structkeyexists(this,"memcached")>
 			<cfset value = application.fc.lib.memcached.get(this.memcached,arguments.key) />
