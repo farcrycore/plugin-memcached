@@ -1,4 +1,6 @@
-# Memcached Plugin
+# Memcached Plugin V1
+
+NOTE: Compatable with FarCry <=7.0.X
 
 *Memcached is a commercial plugin (available with the FarCry Commercial Licence)*
 
