@@ -12,7 +12,7 @@
 		<cfset var protocolType = "" />
 		<cfset var locatorType = "" />
 		<cfset var connectionFactory = "" />
-		
+
 		<cflog type="information" application="true" file="memcached" text="Creating memcached client" />
 		
 		<cfif refindnocase(".*\.cfg.\w+.cache.amazonaws.com",arguments.config.servers)>
@@ -87,8 +87,12 @@
 			<cfset arguments.memcached.set(arguments.key, min(arguments.timeout,60*60*24*30), serializeByteArray(arguments.data)) />
 			
 			<cfcatch>
-				<cflog type="error" application="true" file="memcached" text="Error adding to cache: #cfcatch.message#" />
-				<cfset application.fc.lib.error.logData(application.fc.lib.error.normalizeError(cfcatch)) />
+				<cfif not structkeyexists(request, "logging")>
+					<cfset request.logging = true />
+					<cflog type="error" application="true" file="memcached" text="Error adding to cache: #cfcatch.message#" />
+					<cfset application.fc.lib.error.logData(application.fc.lib.error.normalizeError(cfcatch)) />
+					<cfset structDelete(request,"logging") />
+				</cfif>
 			</cfcatch>
 		</cftry>
 	</cffunction>
