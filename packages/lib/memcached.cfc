@@ -56,6 +56,7 @@
 		<cfargument name="key" type="string" required="true" />
 		
 		<cfset var stLocal = structnew() />
+		<cfset var cfcatch = "" />
 
         <cfset stLocal.value = structnew() />
 		
@@ -83,6 +84,8 @@
 		<cfargument name="data" type="struct" required="true" />
 		<cfargument name="timeout" type="numeric" required="false" default="3600" hint="Number of seconds until this item should timeout" />
 		
+		<cfset var cfcatch = "" />
+
 		<cftry>
 			<cfset arguments.memcached.set(arguments.key, min(arguments.timeout,60*60*24*30), serializeByteArray(arguments.data)) />
 			
@@ -101,6 +104,8 @@
 		<cfargument name="memcached" type="any" required="true" />
 		<cfargument name="key" type="string" required="false" default="" />
 		
+		<cfset var cfcatch = "" />
+
 		<cftry>
 			<cfset arguments.memcached.delete(arguments.key) />
 			
@@ -552,6 +557,8 @@
 		<cfset var output = "">
 		<cfset var input = "">
 		<cfset var line = "" />
+
+		<cfset var cfcatch = "" />
 
 		<cftry>
 			<cfset socket.init(arguments.host,arguments.port)>
