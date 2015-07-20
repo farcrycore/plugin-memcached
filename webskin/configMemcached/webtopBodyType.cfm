@@ -4,10 +4,11 @@
 <cfimport taglib="/farcry/core/tags/webskin" prefix="skin">
 
 <cfset memcached = createobject("component","farcry.plugins.memcached.packages.lib.memcached") />
+<cfset memcachedClient = application.fc.lib.objectbroker.getMemcached() />
 
 <!--- get data --->
 <cfset start = getTickCount() />
-<cfset qItems = memcached.getItems(url.server,url.app) />
+<cfset qItems = memcached.getItems(server=url.server, app=url.app, version=application.fc.lib.objectbroker.getCacheVersion()) />
 <cfquery dbtype="query" name="qItems">select * from qItems where typename='#url.cachetype#'</cfquery>
 <cfset stUncacheableWebskins = application.fc.lib.objectbroker.getTypeWebskinUncacheableStats(url.cachetype) />
 <cfset stCachedWebskins = memcached.getItemWebskinStats(qItems) />

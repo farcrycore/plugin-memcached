@@ -4,10 +4,11 @@
 <cfimport taglib="/farcry/core/tags/webskin" prefix="skin">
 
 <cfset memcached = createobject("component","farcry.plugins.memcached.packages.lib.memcached") />
+<cfset memcachedClient = application.fc.lib.objectbroker.getMemcached() />
 
 <!--- get data --->
 <cfset start = getTickCount() />
-<cfset qItems = memcached.getItems(url.server) />
+<cfset qItems = memcached.getItems(server=url.server) />
 <cfset stApplications = memcached.getApplicationStats(qItems) />
 <cfset processingTime = (getTickCount() - start) / 1000 />
 

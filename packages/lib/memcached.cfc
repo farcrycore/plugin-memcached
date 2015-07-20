@@ -186,7 +186,7 @@
 		<cfset var stResult = {} />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif application.dbType EQ "mssql">
+			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
 				select 		webskin,count(key) as [num], sum([size]) as [size]
 			</cfif>
 			<cfif application.dbType EQ "mysql">
@@ -200,7 +200,7 @@
 		<cfset stResult.stats = q />
 
 		<cfquery dbtype="query" name="q">
-			<cfif application.dbType EQ "mssql">
+			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
 				select 	sum([num]) as sumnum, 
 						max([num]) as maxnum, 
 						max([size]) as sumsize, 
@@ -236,7 +236,7 @@
 		<cfset var stResult = {} />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif application.dbType EQ "mssql">
+			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
 				select		CAST(size as INTEGER) as [size], count(*) as [num]
 				from		arguments.qItems
 				group by 	[size]
@@ -252,7 +252,7 @@
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif application.dbType EQ "mssql">
+			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
 				select 	sum([num]) as sumnum, 
 						max([num]) as maxnum 
 				from 	q
@@ -287,7 +287,7 @@
 				<cfset stWebskinCount[arguments.qItems.typename] = 0 />
 			</cfif>
 			
-			<cfif listlen(arguments.qItems.key,"_") eq 3>
+			<cfif listlen(arguments.qItems.key,"_") eq 4>
 				<!--- object --->
 				<cfset stObjectSize[arguments.qItems.typename] = stObjectSize[arguments.qItems.typename] + arguments.qItems.size />
 				<cfset stObjectCount[arguments.qItems.typename] = stObjectCount[arguments.qItems.typename] + 1 />
@@ -354,7 +354,7 @@
 		<cfset var stResult = structnew() />
 
 		<cfloop query="arguments.qItems">
-			<cfset expires = "" & int(arguments.qItems.expires/60/15) * 60 * 15 />
+			<cfset expires = "" & int(arguments.qItems.expires/60/15) * 60 * 15 - GetTimeZoneInfo().UTCTotalOffset />
 			
 			<cfif not structkeyexists(stCount,expires)>
 				<cfset stCount[expires] = 0 />
@@ -374,7 +374,7 @@
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif application.dbType EQ "mssql">
+			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
 				select 	sum([num]) as sumnum, 
 						max([num]) as maxnum
 				from 	q
@@ -419,7 +419,7 @@
 		<cfset var stResult = structnew() />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif application.dbType EQ "mssql">
+			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
 				select		application, count(*) as [num], sum([size]) as [size]
 			</cfif>
 			<cfif application.dbType EQ "mysql">
@@ -432,7 +432,7 @@
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif application.dbType EQ "mssql">
+			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
 				select 	sum([size]) as sumsize, 
 						max([size]) as maxsize, 
 						sum([num]) as sumnum, 
@@ -458,6 +458,7 @@
 	<cffunction name="getItems" returntype="query" output="false">
 		<cfargument name="server" type="string" required="true" />
 		<cfargument name="app" type="string" required="false" />
+		<cfargument name="version" type="numeric" required="false" />
 		
 		<cfset var slabs = slabStats(arguments.server) />
 		<cfset var slabID = "" />
@@ -466,7 +467,7 @@
 		<cfset var keys = "" />
 		<cfset var item = "" />
 		<cfset var st = "" />
-		<cfset var qItems = querynew("key,size,expires,application,typename,webskin","varchar,integer,bigint,varchar,varchar,varchar") />
+		<cfset var qItems = querynew("version,key,size,expires,application,typename,webskin","numeric,varchar,integer,bigint,varchar,varchar,varchar") />
 		
 		<cfloop collection="#slabs#" item="slabID">
 			<cfset keys = easySocket(hostname,port,"stats cachedump #slabID# #slabs[slabID].number#") />
@@ -478,18 +479,28 @@
 					<cfset querysetcell(qItems,"key",item[2]) />
 					<cfset querysetcell(qItems,"size",mid(item[3],2,100) / 1024) />
 					<cfset querysetcell(qItems,"expires",item[5]) />
-					<cfif listlen(item[2],"_") eq 3 or listlen(item[2],"_") eq 6>
+					<cfif listlen(item[2],"_") eq 4 or listlen(item[2],"_") eq 7>
 						<cfset querysetcell(qItems,"application",listgetat(item[2],1,"_")) />
-						<cfset querysetcell(qItems,"typename",listgetat(item[2],2,"_")) />
-						<cfif listlen(item[2],"_") eq 6>
-							<cfset querysetcell(qItems,"webskin",listgetat(item[2],5,"_")) />
+						<cfset querysetcell(qItems,"version",listgetat(item[2],2,"_")) />
+						<cfset querysetcell(qItems,"typename",listgetat(item[2],3,"_")) />
+						<cfif listlen(item[2],"_") eq 7>
+							<cfset querysetcell(qItems,"webskin",listgetat(item[2],6,"_")) />
 						</cfif>
 					<cfelse>
 						<cfset querysetcell(qItems,"application","Unknown") />
+						<cfset querysetcell(qItems,"version","0") />
 					</cfif>
 				</cfif>
 			</cfloop>
 		</cfloop>
+
+		<cfif structKeyExists(arguments,"version")>
+			<cfquery dbtype="query" name="qItems">
+				select  *
+				from 	qItems
+				where 	version=<cfqueryparam cfsqltype="cf_sql_numeric" value="#arguments.version#">
+			</cfquery>
+		</cfif>
 		
 		<cfreturn qItems />
 	</cffunction>

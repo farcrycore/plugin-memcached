@@ -3,11 +3,8 @@
 	<cffunction name="init" access="public" output="false" returntype="struct">
 		<cfargument name="bFlush" default="false" type="boolean" hint="Allows the application to force a total flush of the objectbroker." />
 		
-		<cfif arguments.bFlush OR NOT structKeyExists(application, "objectBroker") OR NOT structKeyExists(application, "objectrecycler") OR NOT structKeyExists(this,"c")>
-			<!--- Set up cache replacement queue --->
-			<cfset cacheInitialise() />
-		</cfif>	
-		
+		<cfset this.bFlush = arguments.bFlush />
+
 		<cfreturn this />
 	</cffunction>
 	
@@ -16,7 +13,7 @@
 		<cfargument name="typename" required="true" type="string">
 		
 		<cfif isCacheable(typename=arguments.typename,action="read")>
-			<cfreturn cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.objectid#") />
+			<cfreturn cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#arguments.objectid#") />
 		<cfelse>
 			<cfreturn structnew() />
 		</cfif>
@@ -55,7 +52,7 @@
 					hashKey="#arguments.hashKey#"
 			) />
 			
-			<cfset stCacheWebskin = cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#webskinTypename#_#arguments.objectid#_#dateformat(arguments.datetimeLastUpdated,'yyyymmdd')##timeformat(arguments.datetimeLastUpdated,'hhmmss')#_#arguments.template#_#hash(stResult.webskinCacheID)#") />
+			<cfset stCacheWebskin = cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#webskinTypename#_#arguments.objectid#_#dateformat(arguments.datetimeLastUpdated,'yyyymmdd')##timeformat(arguments.datetimeLastUpdated,'hhmmss')#_#arguments.template#_#hash(stResult.webskinCacheID)#") />
 			
 			<cfif not structisempty(stCacheWebskin) AND 
 				structKeyExists(stCacheWebskin, "datetimecreated") AND
@@ -470,7 +467,7 @@
 		<cfparam name="request.mode.design" default="0">
 		
 		<!--- Mode --->
-		<cfset baseCheck = baseCheck and application.bObjectBroker and
+		<cfset baseCheck = baseCheck and application.bObjectBroker and structKeyExists(application, "objectbroker") and
 				  not (
 				  	structKeyExists(request,"mode") AND 
 				  	(
@@ -487,14 +484,7 @@
 		</cfif>
 
 		<!--- Cache settings --->
-		<cfset baseCheck = baseCheck and not (structKeyExists(url, "updateapp") AND url.updateapp EQ 1) and
-		  (
-		  	listfindnocase("fulookup,config,navid,catid",arguments.typename)
-		  	OR (
-			  isdefined("application.stCOAPI.#arguments.typename#.bObjectBroker") and 
-			  application.stcoapi[arguments.typename].bObjectBroker
-			)
-		  ) />
+		<cfset baseCheck = baseCheck and not (structKeyExists(url, "updateapp") AND url.updateapp EQ 1) and structKeyExists(application.objectbroker, arguments.typename) />
 		<cfif baseCheck eq false>
 			<cfset countUncacheable(argumentCollection=arguments,reason="settings") />
 			<cfreturn false />
@@ -573,7 +563,7 @@
 													hashKey="#arguments.stCurrentView.hashKey#"
 										) />
 			
-			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.objectid#_#dateformat(arguments.datetimeLastUpdated,'yyyymmdd')##timeformat(arguments.datetimeLastUpdated,'hhmmss')#_#arguments.template#_#hash(stCacheWebskin.webskinCacheID)#",stCacheWebskin,stCacheWebskin.cacheTimeout*60) />
+			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#arguments.objectid#_#dateformat(arguments.datetimeLastUpdated,'yyyymmdd')##timeformat(arguments.datetimeLastUpdated,'hhmmss')#_#arguments.template#_#hash(stCacheWebskin.webskinCacheID)#",stCacheWebskin,stCacheWebskin.cacheTimeout*60) />
 			
 			<cfreturn true />
 				
@@ -600,7 +590,7 @@
 		</cfif>
 
 		<cfif isCacheable(typename=arguments.typename,action="write") and structkeyexists(arguments,"key")>
-			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#arguments.key#",arguments.stObj,24*60*60) />
+			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#arguments.key#",arguments.stObj,application.objectbroker[arguments.typename].timeout) />
 			<cfreturn true />
 		</cfif>
 		
@@ -699,18 +689,13 @@
 		<cfset var locatorType = "" />
 		<cfset var addresses = "" />
 		
-		<cfif not structkeyexists(arguments,"config")>
-			<cfif isdefined("application.config.memcached")>
-				<cfset arguments.config = duplicate(application.config.memcached) />
-				<cfif isdefined("application.config_readonly.memcached")>
-					<cfset structappend(arguments.config,application.config_readonly.memcached) />
-				</cfif>
-			<cfelse>
-				<cfset arguments.config = structnew() />
-			</cfif>
-		</cfif>
-
+		<cfparam name="arguments.config" default="#structnew()#">
 		<cfset this.config = arguments.config />
+
+		<cfparam name="this.config.servers" default="#application.fapi.getConfig('memcached','servers','')#">
+		<cfparam name="this.config.protocol" default="#application.fapi.getConfig('memcached','protocol','')#">
+		<cfparam name="this.config.locator" default="#application.fapi.getConfig('memcached','locator','')#">
+		<cfparam name="this.config.operationTimeout" default="#application.fapi.getConfig('memcached','operationTimeout','')#">
 		
 		<cfif isdefined("arguments.config.servers") and len(trim(arguments.config.servers))
 			and isdefined("arguments.config.protocol") and len(trim(arguments.config.protocol))
@@ -724,23 +709,71 @@
 			<cfset this.add_total = 0 />
 			<cfset this.add_count = 0 />
 		<cfelse>
-			<cflog type="information" application="true" file="memcached" text="No config for memcached" />
+			<cfif not structKeyExists(this, "bLogggedNoConfig")>
+				<cfset this.bLogggedNoConfig = true />
+				<cflog type="information" application="true" file="memcached" text="No config for memcached" />
+			</cfif>
 			<cfif structkeyexists(this,"memcached")>
 				<cflog type="information" application="true" file="memcached" text="Removing memcached client" />
 				<cfset structdelete(this,"memcached") />
 			</cfif>
+			<cfif structKeyExists(this,"config")>
+				<cfset structdelete(this,"config") />
+			</cfif>
 		</cfif>
 	</cffunction>
-	
+
+	<cffunction name="getMemcached" access="public" output="false" returntype="any">
+		
+		<cfif not structKeyExists(this, "memcached") and not structKeyExists(this, "config")>
+			<cfset cacheInitialise() />
+		</cfif>
+
+		<cfif structKeyExists(this, "memcached")>
+			<cfreturn this.memcached />
+		<cfelse>
+			<cfreturn {} />
+		</cfif>
+	</cffunction>
+
+	<cffunction name="getCacheVersion" access="public" output="false" returntype="string" hint="The plugin stores a cache 'version' in memcached that should be used in all keys. Updating this version should equivilent to clearing the cache.">
+		<cfargument name="increment" type="boolean" required="false" default="false" />
+
+		<cfif arguments.increment>
+			<cfset this.bFlush = true />
+		</cfif>
+
+		<!--- We put the version into the request scope so that caches are consistent across a request --->
+		<cfif not isDefined("request.cacheMeta.version") or this.bFlush>
+			<cfset request.cacheMeta = cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_cachemeta") />
+			
+			<!--- If a cache-clear is called for, it will be done on the first cache touch on the next request --->
+			<cfif not structIsEmpty(request.cacheMeta) and this.bFlush>
+				<cfset this.bFlush = false />
+				<cfset request.cacheMeta.version = request.cacheMeta.version + 1 />
+				<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_cachemeta", request.cacheMeta, 60*60*24*30) />
+			</cfif>
+		</cfif>
+
+		<!--- If this still isn't defined, i.e. there wasn't a version in memcached, initialize it --->
+		<cfif not isdefined("request.cacheMeta.version")>
+			<cfset request.cacheMeta = { version="1" } />
+			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_cachemeta", request.cacheMeta, 60*60*24*30) />
+		</cfif>
+		
+		<cfreturn request.cacheMeta.version />
+	</cffunction>
+
 	<cffunction name="cachePull" access="public" output="false" returntype="struct" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">
 		<cfargument name="key" type="string" required="true" />
 		
 		<cfset var value = structnew() />
 		<cfset var starttime = getTickCount() />
 		<cfset var id = "memcached-get-#application.fapi.getUUID()#" />
+		<cfset var memcached = getMemcached() />
 
-		<cfif structkeyexists(this,"memcached")>
-			<cfset value = application.fc.lib.memcached.get(this.memcached,arguments.key) />
+		<cfif not structIsEmpty(memcached)>
+			<cfset value = application.fc.lib.memcached.get(memcached,arguments.key) />
 			
 			<cfset this.pull_total = this.pull_total + getTickCount() - starttime />
 			<cfset this.pull_count = this.pull_count + 1 />
@@ -755,9 +788,10 @@
 		<cfargument name="timeout" type="numeric" required="false" default="3600" hint="Number of seconds until this item should timeout" />
 		
 		<cfset var starttime = getTickCount() />
+		<cfset var memcached = getMemcached() />
 		
-		<cfif structkeyexists(this,"memcached")>
-			<cfset application.fc.lib.memcached.set(this.memcached,arguments.key,arguments.data,arguments.timeout) />
+		<cfif not structIsEmpty(memcached)>
+			<cfset application.fc.lib.memcached.set(memcached,arguments.key,arguments.data,arguments.timeout) />
 
 			<cfset this.add_total = this.add_total + getTickCount() - starttime />
 			<cfset this.add_count = this.add_count + 1 />
@@ -767,14 +801,26 @@
 	<cffunction name="cacheFlush" access="public" output="false" returntype="void" hint="Removes items from the cache that match the specified regex. Does NOT change the cache management stats.">
 		<cfargument name="key" type="string" required="false" default="" />
 		
-		<cfif structkeyexists(this,"memcached")>
-			<cfset application.fc.lib.memcached.flush(this.memcached,arguments.key) />
+		<cfset var memcached = getMemcached() />
+
+		<cfif not structIsEmpty(memcached)>
+			<cfset application.fc.lib.memcached.flush(memcached,arguments.key) />
 		</cfif>
 	</cffunction>
 	
-	<cffunction name="configureType">
+	<cffunction name="configureType" access="public" output="false" returntype="boolean">
+		<cfargument name="typename" required="yes" type="string">
+		<cfargument name="MaxObjects" required="no" type="numeric" default="100">
+		<cfargument name="Timeout" required="no" type="numeric" default="3600">
 		
+		<cfset var bResult = "true" />
 		
+		<cfset application.objectbroker[arguments.typename] = {
+			"maxobjects" = arguments.MaxObjects,
+			"timeout" = arguments.timeout
+		} />
+		
+		<cfreturn bResult />
 	</cffunction>
 	
 	<cffunction name="getAveragePutTime" access="public" returntype="numeric" output="false" hint="Average number of milliseconds for a put">
