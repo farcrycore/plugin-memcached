@@ -609,7 +609,7 @@
 
 		<cfif application.bObjectBroker and structkeyexists(application.objectbroker, arguments.typename)>
 			<cfloop list="#arguments.lObjectIDs#" index="i">
-				<cfset cacheFlush("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#i#")>
+				<cfset cacheFlush("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#i#")>
 			</cfloop>
 		</cfif>
 	</cffunction>
