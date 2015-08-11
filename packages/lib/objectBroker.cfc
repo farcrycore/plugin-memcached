@@ -607,7 +607,7 @@
 		<cfset var i = "" />
 		<cfset var regexString = "" />
 
-		<cfif application.bObjectBroker and len(arguments.typename) and application.stcoapi[arguments.typename].bObjectBroker>
+		<cfif application.bObjectBroker and structkeyexists(application.objectbroker, arguments.typename)>
 			<cfloop list="#arguments.lObjectIDs#" index="i">
 				<cfset cacheFlush("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#arguments.typename#_#i#")>
 			</cfloop>
