@@ -484,7 +484,7 @@
 		</cfif>
 
 		<!--- Cache settings --->
-		<cfset baseCheck = baseCheck and not (structKeyExists(url, "updateapp") AND url.updateapp EQ 1) and structKeyExists(application.objectbroker, arguments.typename) />
+		<cfset baseCheck = baseCheck and not (structKeyExists(url, "updateapp") AND url.updateapp EQ 1) and len(arguments.typename) and isdefined("application.objectbroker.#arguments.typename#") />
 		<cfif baseCheck eq false>
 			<cfset countUncacheable(argumentCollection=arguments,reason="settings") />
 			<cfreturn false />
@@ -607,7 +607,7 @@
 		<cfset var i = "" />
 		<cfset var regexString = "" />
 
-		<cfif application.bObjectBroker and structkeyexists(application.objectbroker, arguments.typename)>
+		<cfif application.bObjectBroker and len(arguments.typename) and isdefined("application.objectbroker.#arguments.typename#")>
 			<cfloop list="#arguments.lObjectIDs#" index="i">
 				<cfset cacheFlush("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#i#")>
 			</cfloop>
