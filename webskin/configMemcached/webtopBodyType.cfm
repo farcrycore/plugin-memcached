@@ -1,5 +1,5 @@
 <cfsetting enablecfoutputonly="true" />
-<!--- @@fuAlias: application --->
+<!--- @@fuAlias: cachetype --->
 
 <cfimport taglib="/farcry/core/tags/webskin" prefix="skin">
 
@@ -47,6 +47,30 @@
 			.progress .bar { background-color:##6096ee; }
 		</cfif>
 	</style>
+	<script type="text/javascript">
+		function toggleContent(el,bOnlySelected){
+			var self = $j(el), selected = !self.hasClass("active"), contentgroup = self.data("contentgroup"), content = self.data("content");
+
+			bOnlySelected = bOnlySelected === false ? false : true;
+
+			if (bOnlySelected){
+				// button style
+				self.siblings().removeClass("active");
+				self.addClass("active");
+
+				// content style
+				$j(contentgroup).hide();
+				$j(content).show();
+			}
+			else {
+				// button style
+				self[selected ? "addClass" : "removeClass"]("active");
+
+				// content style
+				$j(content)[selected ? "show" : "hide"]();
+			}
+		};
+	</script>
 </cfoutput></skin:htmlHead>
 
 <cfoutput>
@@ -54,9 +78,17 @@
 	<p><a href="#getServersURL()#">&lt; back to servers</a> | <a href="#getApplicationURL(url.server,url.app)#">&lt; back to application</a></p>
 	<p>Processing time: #numberformat(processingTime,"0.00")#s</p>
 	
-	<h2>Webskins</h2>
+	<h2>
+		Webskins
+		<div class="btn-toolbar pull-right">
+			<div class="btn-group">
+				<a class="btn active" data-contentgroup="##itemtypes .itemtype" data-content="##webskins .webskin.cached" onclick="toggleContent(this,false); return false;">cached</a>
+				<a class="btn" data-contentgroup="##itemtypes .itemtype" data-content="##webskins .webskin.uncached" onclick="toggleContent(this,false); return false;">uncached</a>
+			</div>
+		</div>
+	</h2>
 	<p>NOTE: uncacheable information is logged in the application scope, and is only relevant to this server since the last appliation init.</p>
-	<table width="100%" class="table table-striped">
+	<table width="100%" id="webskins" class="table table-striped">
 		<thead>
 			<tr>
 				<th width="20%">Webskin</th>
@@ -69,7 +101,7 @@
 		<tbody>
 			<cfloop query="stWebskins.stats">
 				<cfif stWebskins.stats.bObjectBroker>
-					<tr>
+					<tr class="webskin cached">
 						<td width="20%">#stWebskins.stats.webskin#</td>
 						<td width="20%">#getProgressBar(stWebskins.stats.num,stWebskins.maxnum,stWebskins.stats.num,"progress-info")#</td>
 						<td width="20%">#getProgressBar(stWebskins.stats.size,stWebskins.maxsize,stWebskins.stats.size,"progress-success")#</td>
@@ -77,13 +109,30 @@
 						<td width="20%">#getProgressBar(stWebskins.stats.settingsnum,stWebskins.maxsettingsnum,stWebskins.stats.settingsnum,"progress-danger")#</td>
 					</tr>
 				<cfelse>
-					<tr style="color:##999999;">
+					<tr class="webskin uncached" style="display:none;">
 						<td width="20%">#stWebskins.stats.webskin#</td>
 						<td colspan="4">cacheStatus: -1</td>
 					</tr>
 				</cfif>
 			</cfloop>
 		</tbody>
+	</table>
+
+	<h2>Keys</h2>
+	<cfset max = arrayMax(listToArray(valueList(qItems.size))) />
+	<table width="100%" class="table table-stiped">
+		<thead>
+			<tr>
+				<th>Cache Key</th>
+				<th>Cache Size</th>
+			</tr>
+		</thead>
+		<cfloop query="qItems">
+			<tr>
+				<td><a href="#getKeyURL(url.server, url.app, url.cachetype, qItems.key)#" onclick="$fc.objectAdminAction('Cache Content', this.href, { onHidden : function(){} }); return false;">#qItems.key#</a></td>
+				<td width="80%">#getProgressBar(qItems.size, max, qItems.size, "progress-info")#</td>
+			</tr>
+		</cfloop>
 	</table>
 </cfoutput>
 

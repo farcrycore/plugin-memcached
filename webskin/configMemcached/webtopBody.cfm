@@ -1,5 +1,7 @@
 <cfsetting enablecfoutputonly="true" />
 
+<cfimport taglib="/farcry/core/tags/webskin" prefix="skin" />
+
 <cfset memcached = createobject("component","farcry.plugins.memcached.packages.lib.memcached") />
 <cfset memcachedClient = application.fc.lib.objectbroker.getMemcached() />
 
@@ -9,18 +11,62 @@
 		<h1>Memcache Status - Overview</h1>
 		<p>Memcached has not initialized.</p>
 	</cfoutput>
+<cfelseif structKeyExists(url, "increment")>
+	<cfset newVersion = application.fc.lib.objectbroker.getCacheVersion(typename=url.increment, increment=true) />
+	<cfif structKeyExists(application.stCOAPI, url.increment)>
+		<cfset displayname = application.fapi.getContentTypeMetadata(url.increment, "displayname", url.increment) />
+	<cfelseif url.increment eq "app">
+		<cfset displayname = "Application" />
+	<cfelse>
+		<cfset displayname = url.increment />
+	</cfif>
+	<skin:bubble tags="success" title="Invalidation Succeeded" message="The #displayname# key scope has has been updated to #newVersion#" />
+	<skin:location url="#application.fapi.fixURL(removevalues='increment')#" />
+<cfelseif structKeyExists(url, "reloadcoapidates")>
+	<cfset application.fc.lib.objectbroker.loadCOAPIKeys() />
+	<skin:bubble tags="success" message="The COAPI dates have been reloaded from farCOAPI" />
+	<skin:location url="#application.fapi.fixURL(removevalues='reloadcoapidates')#" />
 <cfelse>
 	<cfset start = getTickCount() />
 	<cfset aServers = memcached.getAvailableServers(memcachedClient) />
 	<cfset aUnavailable = memcached.getUnavailableServers(memcachedClient) />
 	<cfset stServerStats = memcached.getServerStats(memcachedClient) />
 	<cfset cacheVersion = application.fc.lib.objectbroker.getCacheVersion() />
+	<cfloop collection="#application.objectbroker#" item="key">
+		<cfset application.fc.lib.objectbroker.getCacheVersion(typename=key) />
+	</cfloop>
 	<cfset processingTime = (getTickCount() - start) / 1000 />
+
+	<skin:htmlHead><cfoutput>
+		<script type="text/javascript">
+			function toggleContent(el,bOnlySelected){
+				var self = $j(el), selected = !self.hasClass("active"), contentgroup = self.data("contentgroup"), content = self.data("content");
+
+				bOnlySelected = bOnlySelected === false ? false : true;
+
+				if (bOnlySelected){
+					// button style
+					self.siblings().removeClass("active");
+					self.addClass("active");
+
+					// content style
+					$j(contentgroup).hide();
+					$j(content).show();
+				}
+				else {
+					// button style
+					self[selected ? "addClass" : "removeClass"]("active");
+
+					// content style
+					$j(content)[selected ? "show" : "hide"]();
+				}
+			};
+		</script>
+	</cfoutput></skin:htmlHead>
 
 	<cfoutput>
 		<h1>Memcache Status - Overview</h1>
 		<p>Processing time: #numberformat(processingTime,"0.00")#s</p>
-		<p>Application cache version: #cacheVersion#</p>
 		
 		<h2>Average Times</h2>
 		<table width="100px;" class="table">
@@ -32,6 +78,56 @@
 				<th>Get</th>
 				<td>#application.fc.lib.objectbroker.getAverageGetTime()#ms</td>
 			</tr>
+		</table>
+		
+		<h2>
+			Key Invalidation
+			<div class="btn-toolbar pull-right">
+				<div class="btn-group">
+					<a class="btn" data-contentgroup="##itemtypes .itemtype" data-content="##scopes .scope.narrow" onclick="toggleContent(this,false); return false;">specific</a>
+				</div>
+			</div>
+		</h2>
+		<table width="100px;" id="scopes" class="table">
+			<thead>
+				<tr>
+					<th>Key Scope</th>
+					<th>Scope Version</th>
+					<th>Last Scope Invalidation</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr class="scope wide">
+					<th>Application</th>
+					<td class="text-right">#request.cacheMeta['app'].version#</td>
+					<td>#lcase(timeformat(request.cacheMeta['app'].version_date, 'h:mmtt'))#, #dateformat(request.cacheMeta['app'].version_date, 'd mmmm yyyy')#</td>
+					<td>
+						<a href="#application.fapi.fixURL(addvalues='increment=app')#">Invalidate</a> |
+						<a href="#application.fapi.fixURL(addvalues='reloadcoapidates=1')#">Reload COAPI Dates</a>
+					</td>
+				</tr>
+				<cfloop collection="#application.objectbroker#" item="key">
+					<tr class="scope narrow" style="display:none;">
+						<th>
+							<cfif structKeyExists(application.stCOAPI, key)>
+								#application.fapi.getContentTypeMetadata(key, "displayname", key)#
+							<cfelse>
+								#key#
+							</cfif>
+						</th>
+						<td class="text-right">
+							<cfif structKeyExists(application.stCOAPI, key)>
+								#application.fc.lib.objectbroker.coapiKeys[key]#-#request.cacheMeta[key].version#
+							<cfelse>
+								#request.cacheMeta[key].version#
+							</cfif>
+						</td>
+						<td>#lcase(timeformat(request.cacheMeta[key].version_date, 'h:mmtt'))#, #dateformat(request.cacheMeta[key].version_date, 'd mmmm yyyy')#</td>
+						<td><a href="#application.fapi.fixURL(addvalues='increment=#key#')#">Invalidate</a></td>
+					</tr>
+				</cfloop>
+			</tbody>
 		</table>
 		
 		<h2>Memcached Servers</h2>

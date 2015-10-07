@@ -287,7 +287,7 @@
 				<cfset stWebskinCount[arguments.qItems.typename] = 0 />
 			</cfif>
 			
-			<cfif listlen(arguments.qItems.key,"_") eq 4>
+			<cfif listlen(arguments.qItems.key,"_") eq 5>
 				<!--- object --->
 				<cfset stObjectSize[arguments.qItems.typename] = stObjectSize[arguments.qItems.typename] + arguments.qItems.size />
 				<cfset stObjectCount[arguments.qItems.typename] = stObjectCount[arguments.qItems.typename] + 1 />
@@ -467,7 +467,7 @@
 		<cfset var keys = "" />
 		<cfset var item = "" />
 		<cfset var st = "" />
-		<cfset var qItems = querynew("version,key,size,expires,application,typename,webskin","numeric,varchar,integer,bigint,varchar,varchar,varchar") />
+		<cfset var qItems = querynew("app_version,key,size,expires,application,typename,typename_version,webskin","numeric,varchar,integer,bigint,varchar,varchar,numeric,varchar") />
 		
 		<cfloop collection="#slabs#" item="slabID">
 			<cfset keys = easySocket(hostname,port,"stats cachedump #slabID# #slabs[slabID].number#") />
@@ -479,16 +479,17 @@
 					<cfset querysetcell(qItems,"key",item[2]) />
 					<cfset querysetcell(qItems,"size",mid(item[3],2,100) / 1024) />
 					<cfset querysetcell(qItems,"expires",item[5]) />
-					<cfif listlen(item[2],"_") eq 4 or listlen(item[2],"_") eq 7>
+					<cfif listlen(item[2],"_") eq 5 or listlen(item[2],"_") eq 8>
 						<cfset querysetcell(qItems,"application",listgetat(item[2],1,"_")) />
-						<cfset querysetcell(qItems,"version",listgetat(item[2],2,"_")) />
+						<cfset querysetcell(qItems,"app_version",listgetat(item[2],2,"_")) />
 						<cfset querysetcell(qItems,"typename",listgetat(item[2],3,"_")) />
-						<cfif listlen(item[2],"_") eq 7>
-							<cfset querysetcell(qItems,"webskin",listgetat(item[2],6,"_")) />
+						<cfset querysetcell(qItems,"typename_version",listgetat(item[2],4,"_")) />
+						<cfif listlen(item[2],"_") eq 8>
+							<cfset querysetcell(qItems,"webskin",listgetat(item[2],7,"_")) />
 						</cfif>
 					<cfelse>
 						<cfset querysetcell(qItems,"application","Unknown") />
-						<cfset querysetcell(qItems,"version","0") />
+						<cfset querysetcell(qItems,"app_version","0") />
 					</cfif>
 				</cfif>
 			</cfloop>
@@ -498,7 +499,7 @@
 			<cfquery dbtype="query" name="qItems">
 				select  *
 				from 	qItems
-				where 	version=<cfqueryparam cfsqltype="cf_sql_numeric" value="#arguments.version#">
+				where 	app_version=<cfqueryparam cfsqltype="cf_sql_numeric" value="#arguments.version#">
 			</cfquery>
 		</cfif>
 		

@@ -3,9 +3,26 @@
 	<cffunction name="init" access="public" output="false" returntype="struct">
 		<cfargument name="bFlush" default="false" type="boolean" hint="Allows the application to force a total flush of the objectbroker." />
 		
+		<cfset loadCOAPIKeys() />
+
 		<cfset this.bFlush = arguments.bFlush />
 
 		<cfreturn this />
+	</cffunction>
+
+	<cffunction name="loadCOAPIKeys" access="public" output="false" returntype="void">
+		<cfset var qCOAPI = "" />
+
+		<cfquery datasource="#application.dsn#" name="qCOAPI">
+			SELECT 	name, datetimeLastUpdated
+			FROM 	farCOAPI
+		</cfquery>
+
+		<cfset this.coapiKeys = {} />
+
+		<cfloop query="qCOAPI">
+			<cfset this.coapiKeys[qCOAPI.name] = dateformat(qCOAPI.datetimeLastUpdated, "mmdd") & timeformat(qCOAPI.datetimeLastUpdated, "hhmm") />
+		</cfloop>
 	</cffunction>
 	
 	<cffunction name="GetFromObjectBroker" access="public" output="false" returntype="struct">
@@ -13,7 +30,7 @@
 		<cfargument name="typename" required="true" type="string">
 		
 		<cfif isCacheable(typename=arguments.typename,action="read")>
-			<cfreturn cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#arguments.objectid#") />
+			<cfreturn cachePull(getCacheKey(typename=arguments.typename, objectid=arguments.objectid)) />
 		<cfelse>
 			<cfreturn structnew() />
 		</cfif>
@@ -52,7 +69,7 @@
 					hashKey="#arguments.hashKey#"
 			) />
 			
-			<cfset stCacheWebskin = cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#webskinTypename#_#arguments.objectid#_#dateformat(arguments.datetimeLastUpdated,'yyyymmdd')##timeformat(arguments.datetimeLastUpdated,'hhmmss')#_#arguments.template#_#hash(stResult.webskinCacheID)#") />
+			<cfset stCacheWebskin = cachePull(getCacheKey(typename=webskinTypename, objectid=arguments.objectid, objectdate=arguments.datetimeLastUpdated, template=arguments.template, webskinCacheID=stResult.webskinCacheID)) />
 			
 			<cfif not structisempty(stCacheWebskin) AND 
 				structKeyExists(stCacheWebskin, "datetimecreated") AND
@@ -563,7 +580,7 @@
 													hashKey="#arguments.stCurrentView.hashKey#"
 										) />
 			
-			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#arguments.objectid#_#dateformat(arguments.datetimeLastUpdated,'yyyymmdd')##timeformat(arguments.datetimeLastUpdated,'hhmmss')#_#arguments.template#_#hash(stCacheWebskin.webskinCacheID)#",stCacheWebskin,stCacheWebskin.cacheTimeout*60) />
+			<cfset cacheAdd(getCacheKey(typename=arguments.typename, objectid=arguments.objectid, objectdate=arguments.datetimeLastUpdated, template=arguments.template, webskinCacheID=stCacheWebskin.webskinCacheID),stCacheWebskin,stCacheWebskin.cacheTimeout*60) />
 			
 			<cfreturn true />
 				
@@ -590,7 +607,7 @@
 		</cfif>
 
 		<cfif isCacheable(typename=arguments.typename,action="write") and structkeyexists(arguments,"key")>
-			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#arguments.key#",arguments.stObj,application.objectbroker[arguments.typename].timeout) />
+			<cfset cacheAdd(getCacheKey(typename=arguments.typename, objectid=arguments.key), arguments.stObj, application.objectbroker[arguments.typename].timeout) />
 			<cfreturn true />
 		</cfif>
 		
@@ -609,7 +626,7 @@
 
 		<cfif application.bObjectBroker and len(arguments.typename) and isdefined("application.objectbroker.#arguments.typename#")>
 			<cfloop list="#arguments.lObjectIDs#" index="i">
-				<cfset cacheFlush("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_#getCacheVersion()#_#arguments.typename#_#i#")>
+				<cfset cacheFlush(getCacheKey(typename=arguments.typename, objectid=i))>
 			</cfloop>
 		</cfif>
 	</cffunction>
@@ -736,32 +753,85 @@
 		</cfif>
 	</cffunction>
 
-	<cffunction name="getCacheVersion" access="public" output="false" returntype="string" hint="The plugin stores a cache 'version' in memcached that should be used in all keys. Updating this version should equivilent to clearing the cache.">
-		<cfargument name="increment" type="boolean" required="false" default="false" />
+	<cffunction name="getCacheKey" access="public" output="false" returntype="string">
+		<cfargument name="typename" required="true" type="string">
+		<cfargument name="ObjectID" required="true" type="string">
+		<cfargument name="ObjectDate" required="false" type="date" />
+		<cfargument name="template" required="false" type="string">
+		<cfargument name="webskinCacheID" required="false" type="string">
 
-		<cfif arguments.increment>
-			<cfset this.bFlush = true />
+		<cfset var app_name = left(rereplace(application.applicationname,'[^\w\d]','','ALL'), 10) />
+		<cfset var app_version = getCacheVersion() />
+		<cfset var type_version = getCacheVersion(arguments.typename) />
+
+		<cfif structKeyExists(this.coapiKeys, arguments.typename)>
+			<cfset type_version = this.coapikeys[arguments.typename] & "-" & type_version />
 		</cfif>
 
-		<!--- We put the version into the request scope so that caches are consistent across a request --->
-		<cfif not isDefined("request.cacheMeta.version") or this.bFlush>
-			<cfset request.cacheMeta = cachePull("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_cachemeta") />
-			
-			<!--- If a cache-clear is called for, it will be done on the first cache touch on the next request --->
-			<cfif not structIsEmpty(request.cacheMeta) and this.bFlush>
-				<cfset this.bFlush = false />
-				<cfset request.cacheMeta.version = request.cacheMeta.version + 1 />
-				<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_cachemeta", request.cacheMeta, 60*60*24*30) />
-			</cfif>
-		</cfif>
+		<cfset var key = "#app_name#_#app_version#_#arguments.typename#_#type_version#_#arguments.objectid#" />
 
-		<!--- If this still isn't defined, i.e. there wasn't a version in memcached, initialize it --->
-		<cfif not isdefined("request.cacheMeta.version")>
-			<cfset request.cacheMeta = { version="1" } />
-			<cfset cacheAdd("#rereplace(application.applicationname,'[^\w\d]','','ALL')#_cachemeta", request.cacheMeta, 60*60*24*30) />
+		<cfif structKeyExists(arguments, "template")>
+			<cfset key = key & "_#dateformat(arguments.ObjectDate,'yyyymmdd')##timeformat(arguments.ObjectDate,'hhmmss')#_#arguments.template#_#hash(stCacheWebskin.webskinCacheID)#" />
 		</cfif>
 		
-		<cfreturn request.cacheMeta.version />
+		<cfreturn key />
+	</cffunction>
+
+	<cffunction name="getCacheVersion" access="public" output="false" returntype="string" hint="The plugin stores a cache 'version' in memcached that should be used in all keys. Updating this version should equivilent to clearing the cache.">
+		<cfargument name="typename" type="string" required="false" default="app" />
+		<cfargument name="increment" type="boolean" required="false" default="false" />
+
+		<cfset var data = {} />
+		<cfset var key = rereplace(application.applicationname,'[^\w\d]','','ALL') & "_" & arguments.typename & "_cachemeta" />
+		<cfset var changed = false />
+
+		<!--- Initialize request scope --->
+		<cfif not structKeyExists(request, "cacheMeta")>
+			<cfset request.cacheMeta = {} />
+		</cfif>
+
+		<!--- Get data from cache --->
+		<cfif not structKeyExists(request.cacheMeta, arguments.typename)>
+			<cfset request.cacheMeta[arguments.typename] = cachePull(key) />
+		</cfif>
+
+		<!--- Handle bFlush cache --->
+		<cfif this.bFlush and arguments.typename eq "app">
+			<cfset arguments.increment = true />
+			<cfset this.bFlush = false />
+		</cfif>
+
+		<!--- Update the version info --->
+		<cfif structIsEmpty(request.cacheMeta[arguments.typename])>
+			<cfset data = {
+				"version" = 1,
+				"version_date" = now(),
+				"readd" = dateAdd("h", 6, now())
+			} />
+			<cfset changed = true />
+		<cfelseif arguments.increment>
+			<cfset data = {
+				"version" = (request.cacheMeta[arguments.typename].version + 1) mod 100,
+				"version_date" = now(),
+				"readd" = dateAdd("h", 6, now())
+			} />
+			<cfset changed = true />
+		<cfelseif request.cacheMeta[arguments.typename].readd lt now()>
+			<cfset data = {
+				"version" = request.cacheMeta[arguments.typename].version,
+				"version_date" = request.cacheMeta[arguments.typename].version_date,
+				"readd" = dateAdd("h", 6, now())
+			} />
+			<cfset changed = true />
+		</cfif>
+
+		<cfif changed>
+			<cfset request.cacheMeta[arguments.typename] = data />
+			<cfset cacheAdd(key, data) />
+		</cfif>
+
+		<!--- Return the requested version --->
+		<cfreturn request.cacheMeta[arguments.typename].version />
 	</cffunction>
 
 	<cffunction name="cachePull" access="public" output="false" returntype="struct" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">

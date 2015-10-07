@@ -53,5 +53,30 @@ feature of memcached which the developers are planning to deprecate.
 application and memcached servers. If you have more than 100 000 items in your cache,
 you may find that the reports time out.
 
+## Cache Invalidation
+
+Updating or restarting the application does _not_ clear the cache. See the following
+sections for the different ways to invalidate cache data.
+
+### COAPI deployments
+
+Content type data is cache keys include the last schema change date for that type.
+Deploying schema updates automatically causes the app to stop using previous cache
+items.
+
+*NOTE*: other servers will conetinue to use the old cache items until you update the
+application to refresh the schema change dates. This allows you to deploy changes
+on one server without breaking the site on another unupdated server.
+
+### Rebuild Site
+
+This option, in the Tray, invalidates every key used by the site, and will affect
+every server using the same Memcached server.
+
+### Fine Grained
+
+The Memcached page in the webtop (Admin -> General Admin -> Application Settings -> 
+Memcached Summary) has options for manually triggering invalidation either across the
+entire application or for specific sections of the cache.
 
 [1]: http://memcached.org/

@@ -84,4 +84,13 @@
 		<cfreturn application.fapi.fixURL(addvalues='type=configMemcached&bodyView=webtopBodyType&server=#arguments.server#&app=#arguments.app#&cachetype=#arguments.typename#',removevalues='') />
 	</cffunction>
 
+	<cffunction name="getKeyURL" access="public" output="false" returntype="string">
+		<cfargument name="server" type="string" required="true" />
+		<cfargument name="app" type="string" required="true" />
+		<cfargument name="typename" type="string" required="true" />
+		<cfargument name="key" type="string" required="true" />
+
+		<cfreturn application.fapi.fixURL(addvalues='type=configMemcached&view=webtopPageModal&bodyView=webtopBodyKey&server=#arguments.server#&app=#arguments.app#&cachetype=#arguments.typename#&key=#arguments.key#',removevalues='') />
+	</cffunction>
+
 </cfcomponent>
