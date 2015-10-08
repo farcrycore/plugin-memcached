@@ -771,7 +771,7 @@
 		<cfset var key = "#app_name#_#app_version#_#arguments.typename#_#type_version#_#arguments.objectid#" />
 
 		<cfif structKeyExists(arguments, "template")>
-			<cfset key = key & "_#dateformat(arguments.ObjectDate,'yyyymmdd')##timeformat(arguments.ObjectDate,'hhmmss')#_#arguments.template#_#hash(stCacheWebskin.webskinCacheID)#" />
+			<cfset key = key & "_#dateformat(arguments.ObjectDate,'yyyymmdd')##timeformat(arguments.ObjectDate,'hhmmss')#_#arguments.template#_#hash(arguments.webskinCacheID)#" />
 		</cfif>
 		
 		<cfreturn key />
