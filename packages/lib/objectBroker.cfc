@@ -6,6 +6,7 @@
 		<cfset loadCOAPIKeys() />
 
 		<cfset this.bFlush = arguments.bFlush />
+		<cfset this.cacheMeta = {} />
 
 		<cfreturn this />
 	</cffunction>
@@ -781,7 +782,7 @@
 		<cfargument name="typename" type="string" required="false" default="app" />
 		<cfargument name="increment" type="boolean" required="false" default="false" />
 
-		<cfset var data = {} />
+		<cfset var data = { "version" = 0 } />
 		<cfset var key = rereplace(application.applicationname,'[^\w\d]','','ALL') & "_" & arguments.typename & "_cachemeta" />
 		<cfset var changed = false />
 
@@ -823,6 +824,16 @@
 				"readd" = dateAdd("h", 6, now())
 			} />
 			<cfset changed = true />
+		<cfelse>
+			<cfset data = request.cacheMeta[arguments.typename] />
+		</cfif>
+
+		<!--- Track the versions in the application scope and use them to ensure that version numbers don't revert --->
+		<cfif structKeyExists(this.cacheMeta, arguments.typename) and this.cacheMeta[arguments.typename].version gt data.version>
+			<cfset data = this.cacheMeta[arguments.typename] />
+			<cfset changed = true />
+		<cfelseif not structKeyExists(this.cacheMeta, arguments.typename) or this.cacheMeta[arguments.typename].version lt data.version>
+			<cfset this.cacheMeta[arguments.typename] = data />
 		</cfif>
 
 		<cfif changed>
