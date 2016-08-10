@@ -186,7 +186,7 @@
 		<cfset var stResult = {} />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
+			<cfif findnocase("mssql",application.dbType)>
 				select 		webskin,count(key) as [num], sum([size]) as [size]
 			</cfif>
 			<cfif application.dbType EQ "mysql">
@@ -200,7 +200,7 @@
 		<cfset stResult.stats = q />
 
 		<cfquery dbtype="query" name="q">
-			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
+			<cfif findnocase("mssql",application.dbType)>
 				select 	sum([num]) as sumnum, 
 						max([num]) as maxnum, 
 						max([size]) as sumsize, 
@@ -236,7 +236,7 @@
 		<cfset var stResult = {} />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
+			<cfif findnocase("mssql",application.dbType)>
 				select		CAST(size as INTEGER) as [size], count(*) as [num]
 				from		arguments.qItems
 				group by 	[size]
@@ -252,7 +252,7 @@
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
+			<cfif findnocase("mssql",application.dbType)>
 				select 	sum([num]) as sumnum, 
 						max([num]) as maxnum 
 				from 	q
@@ -374,7 +374,7 @@
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
+			<cfif findnocase("mssql",application.dbType)>
 				select 	sum([num]) as sumnum, 
 						max([num]) as maxnum
 				from 	q
@@ -419,7 +419,7 @@
 		<cfset var stResult = structnew() />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
+			<cfif findnocase("mssql",application.dbType)>
 				select		application, count(*) as [num], sum([size]) as [size]
 			</cfif>
 			<cfif application.dbType EQ "mysql">
@@ -432,7 +432,7 @@
 		<cfset stResult.stats = q />
 		
 		<cfquery dbtype="query" name="q">
-			<cfif listfindnocase("mssql,mssql2005",application.dbType)>
+			<cfif findnocase("mssql",application.dbType)>
 				select 	sum([size]) as sumsize, 
 						max([size]) as maxsize, 
 						sum([num]) as sumnum, 
