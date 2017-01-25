@@ -36,7 +36,88 @@
 			<cfreturn structnew() />
 		</cfif>
 	</cffunction>
-	
+
+	<cffunction name="log" access="public" output="false" returntype="void">
+		<cfargument name="cachename" type="string" required="true">
+		<cfargument name="key" type="string" required="true">
+		<cfargument name="line" type="string" required="true">
+
+		<cfset var starttime = getTickCount() />
+		<cfset var memcached = getMemcached() />
+		<cfset var actualkey = getCacheKey(typename=arguments.cachename, objectid=arguments.key) />
+
+		<cfif not structIsEmpty(memcached)>
+			<cfset application.fc.lib.memcached.add(memcached, actualkey, "", application.objectbroker[arguments.cachename].timeout) />
+			<cfset application.fc.lib.memcached.append(memcached, actualkey, arguments.line & chr(10)) />
+
+			<cfset this.add_total = this.add_total + getTickCount() - starttime />
+			<cfset this.add_count = this.add_count + 1 />
+		</cfif>
+	</cffunction>
+
+	<cffunction name="getLog" access="public" output="false" returntype="query">
+		<cfargument name="cachename" type="string" required="true">
+		<cfargument name="key" type="string" required="true">
+		<cfargument name="headers" required="no" type="string" default="Message">
+
+		<cfset var actualkey = getCacheKey(typename=arguments.cachename, objectid=arguments.key) />
+		<cfset var data = cachePull(actualkey) />
+		<cfset var qResult = queryNew(arguments.headers) />
+		<cfset var i = 0 />
+		<cfset var delimiter = "," />
+		<cfset var Pattern = CreateObject("java","java.util.regex.Pattern").Compile(JavaCast("string",
+			"\G(#delimiter#|\r?\n|\r|^)" & <!--- Delimiter. --->
+			"(?:""([^""]*+(?>""""[^""]*+)*)""|" & <!--- Quoted field value. --->
+			"([^""#delimiter#\r\n]*+))" <!--- Standard field value --->
+			)) />
+		<cfset var Matcher = "" />
+		<cfset var columns = listToArray(arguments.headers) />
+		<cfset var columnIndex = 0 />
+		<cfset var value = "" />
+
+		<cfif isStruct(data)><!--- No item in cache, or someone put structured data here --->
+			<cfreturn qResult />
+		</cfif>
+
+		<cfset data = listToArray(data, '#chr(10)##chr(13)#') />
+
+		<cfloop from="1" to="#arrayLen(data)#" index="i">
+			<cfif len(trim(data[i]))>
+				<cfset Matcher = Pattern.Matcher(JavaCast( "string", trim(data[i]) )) />
+				<cfset queryaddrow(qResult) />
+				<cfset columnindex = 1 />
+
+				<cfloop condition="Matcher.Find()">
+					<!---
+						Get the field token value in group 2 (which may
+						not exist if the field value was not qualified.
+					--->
+					<cfset value = Matcher.Group(JavaCast( "int", 2 )) />
+
+					<!---
+						Check to see if the value exists. If it doesn't
+						exist, then we want the non-qualified field. If
+						it does exist, then we want to replace any escaped
+						embedded quotes.
+					--->
+					<cfif isDefined("value")>
+						<cfset value = Replace(value,"""""","""","all") />
+					<cfelse>
+						<cfset value = Matcher.Group(JavaCast( "int", 3 )) />
+					</cfif>
+
+					<!--- Add the field value to the query --->
+					<cfif columnindex lte arrayLen(columns)>
+						<cfset querysetcell(qResult, columns[columnindex], value) />
+					</cfif>
+					<cfset columnindex += 1 />
+				</cfloop>
+			</cfif>
+		</cfloop>
+
+		<cfreturn qResult />
+	</cffunction>
+
 	<cffunction name="getWebskin" access="public" output="true" returntype="struct" hint="Searches the object broker in an attempt to locate the requested webskin template. Returns a struct containing the webskinCacheID and the html.">
 		<cfargument name="ObjectID" required="false" type="UUID">
 		<cfargument name="typename" required="true" type="string">
@@ -845,7 +926,7 @@
 		<cfreturn request.cacheMeta[arguments.typename].version />
 	</cffunction>
 
-	<cffunction name="cachePull" access="public" output="false" returntype="struct" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">
+	<cffunction name="cachePull" access="public" output="false" returntype="any" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">
 		<cfargument name="key" type="string" required="true" />
 		
 		<cfset var value = structnew() />

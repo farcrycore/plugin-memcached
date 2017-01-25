@@ -51,33 +51,57 @@
 		<cfreturn memcached />
 	</cffunction>
 
-	<cffunction name="get" access="public" output="false" returntype="struct" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">
+	<cffunction name="get" access="public" output="false" returntype="any" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">
 		<cfargument name="memcached" type="any" required="true" />
 		<cfargument name="key" type="string" required="true" />
-		
+
 		<cfset var stLocal = structnew() />
 		<cfset var cfcatch = "" />
 
         <cfset stLocal.value = structnew() />
-		
+
 		<cftry>
 			<cfset stLocal.value = arguments.memcached.get(arguments.key) />
-			
+
 			<!--- catch nulls --->
 			<cfif StructKeyExists(stLocal,"value")>
 				<cfset stLocal.value = deserializeByteArray(stLocal.value) />
 			<cfelse>
 				<cfset stLocal.value = structnew() />
 			</cfif>
-			
+
 			<cfcatch>
 				<cfset stLocal.value = structnew() />
 			</cfcatch>
 		</cftry>
-		
+
 		<cfreturn stLocal.value />
 	</cffunction>
-	
+
+	<cffunction name="add" access="public" output="false" returntype="void" hint="Adds the specified key in the cache. Note that if the key IS in cache this is a null operation.">
+		<cfargument name="memcached" type="any" required="true" />
+		<cfargument name="key" type="string" required="true" />
+		<cfargument name="data" type="any" required="true" />
+		<cfargument name="timeout" type="numeric" required="false" default="3600" hint="Number of seconds until this item should timeout" />
+
+		<cfset var cfcatch = "" />
+
+		<cftry>
+			<cfset arguments.memcached.add(arguments.key, min(arguments.timeout,60*60*24*30), serializeByteArray(arguments.data)) />
+
+			<cfcatch>
+				<cfif not structkeyexists(request, "logging")>
+					<cfset request.logging = true />
+					<cflog type="error" application="true" file="memcached" text="Error adding to cache: #cfcatch.message#" />
+					<cfif not find("Interrupted while waiting to add Cmd",cfcatch.message)>
+						<cfset application.fc.lib.error.logData(application.fc.lib.error.normalizeError(cfcatch)) />
+					</cfif>
+					<cfset structDelete(request,"logging") />
+				</cfif>
+			</cfcatch>
+		</cftry>
+	</cffunction>
+
 	<cffunction name="set" access="public" output="false" returntype="void" hint="Puts the specified key in the cache. Note that if the key IS in cache or the data is deliberately empty, the cache is updated but cache queuing is not effected.">
 		<cfargument name="memcached" type="any" required="true" />
 		<cfargument name="key" type="string" required="true" />
@@ -92,7 +116,7 @@
 			<cfcatch>
 				<cfif not structkeyexists(request, "logging")>
 					<cfset request.logging = true />
-					<cflog type="error" application="true" file="memcached" text="Error adding to cache: #cfcatch.message#" />
+					<cflog type="error" application="true" file="memcached" text="Error setting to cache: #cfcatch.message#" />
 					<cfif not find("Interrupted while waiting to add Cmd",cfcatch.message)>
 						<cfset application.fc.lib.error.logData(application.fc.lib.error.normalizeError(cfcatch)) />
 					</cfif>
@@ -101,7 +125,32 @@
 			</cfcatch>
 		</cftry>
 	</cffunction>
-	
+
+	<cffunction name="append" access="public" output="false" returntype="void" hint="Removes items from the cache that match the specified regex. Does NOT change the cache management stats.">
+		<cfargument name="memcached" type="any" required="true" />
+		<cfargument name="key" type="string" required="false" default="" />
+		<cfargument name="data" type="string" required="true" />
+
+		<cfset var cfcatch = "" />
+		<cfset var val = "" />
+
+		<cftry>
+			<cfset val = arguments.memcached.gets(arguments.key) />
+			<cfset arguments.memcached.append(val.getCas(), arguments.key, serializeByteArray(arguments.data)) />
+
+			<cfcatch>
+				<cfif not structkeyexists(request, "logging")>
+					<cfset request.logging = true />
+					<cflog type="error" application="true" file="memcached" text="Error appending to cache: #cfcatch.message#" />
+					<cfif not find("Interrupted while waiting to add Cmd",cfcatch.message)>
+						<cfset application.fc.lib.error.logData(application.fc.lib.error.normalizeError(cfcatch)) />
+					</cfif>
+					<cfset structDelete(request,"logging") />
+				</cfif>
+			</cfcatch>
+		</cftry>
+	</cffunction>
+
 	<cffunction name="flush" access="public" output="false" returntype="void" hint="Removes items from the cache that match the specified regex. Does NOT change the cache management stats.">
 		<cfargument name="memcached" type="any" required="true" />
 		<cfargument name="key" type="string" required="false" default="" />
@@ -116,7 +165,7 @@
 			</cfcatch>
 		</cftry>
 	</cffunction>
-	
+
 	<cffunction name="getAvailableServers" access="public" returntype="any" output="false" hint="Get the addresses of available servers.">
 		<cfargument name="memcached" type="any" required="true" />
 
