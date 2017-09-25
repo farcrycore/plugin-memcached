@@ -5,7 +5,7 @@
 		
 		<cfset loadCOAPIKeys() />
 
-		<cfparam name="application.objectbroker" default="{}" />
+		<cfparam name="application.objectbroker" default="#structnew()#" />
 
 		<cfset this.bFlush = arguments.bFlush />
 		<cfset this.cacheMeta = {} />
