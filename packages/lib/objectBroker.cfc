@@ -898,7 +898,6 @@
 			<cfset v = (request.cacheMeta[arguments.typename].version + 1) mod 100>
 			<cfif v == 0>
 				<cfset v = 1>
-				<!--- <cfset vReset = true> --->
 			</cfif>
 			<cfset data = {
 				"version" = v,
@@ -921,7 +920,7 @@
 		<cfif structKeyExists(this.cacheMeta, arguments.typename) 
 		      and this.cacheMeta[arguments.typename].version gt data.version
 		      and data.version != 1
-		      and this.cacheMeta[arguments.typename].version != 99
+		      and this.cacheMeta[arguments.typename].version <= 99
 		>
 			<cfset data = this.cacheMeta[arguments.typename] />
 			<cfset changed = true />
