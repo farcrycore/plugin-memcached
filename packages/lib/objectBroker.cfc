@@ -869,7 +869,6 @@
 		<cfset var key = rereplace(application.applicationname,'[^\w\d]','','ALL') & "_" & arguments.typename & "_cachemeta" />
 		<cfset var changed = false />
 		<cfset var v = 0>
-		<cfset var vReset = false>
 
 		<!--- Initialize request scope --->
 		<cfif not structKeyExists(request, "cacheMeta")>
@@ -899,7 +898,7 @@
 			<cfset v = (request.cacheMeta[arguments.typename].version + 1) mod 100>
 			<cfif v == 0>
 				<cfset v = 1>
-				<cfset vReset = true>
+				<!--- <cfset vReset = true> --->
 			</cfif>
 			<cfset data = {
 				"version" = v,
@@ -921,11 +920,13 @@
 		<!--- Track the versions in the application scope and use them to ensure that version numbers don't revert --->
 		<cfif structKeyExists(this.cacheMeta, arguments.typename) 
 		      and this.cacheMeta[arguments.typename].version gt data.version
-		      and not vReset>
+		      and data.version != 1
+		      and this.cacheMeta[arguments.typename].version != 99
+		>
 			<cfset data = this.cacheMeta[arguments.typename] />
 			<cfset changed = true />
 		<cfelseif not structKeyExists(this.cacheMeta, arguments.typename) or 
-		          (this.cacheMeta[arguments.typename].version lt data.version or vReset)>
+		          this.cacheMeta[arguments.typename].version lt data.version>
 			<cfset this.cacheMeta[arguments.typename] = data />
 		</cfif>
 
