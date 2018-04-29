@@ -917,16 +917,23 @@
 		</cfif>
 
 		<!--- Track the versions in the application scope and use them to ensure that version numbers don't revert --->
-		<cfif structKeyExists(this.cacheMeta, arguments.typename) 
-		      and this.cacheMeta[arguments.typename].version gt data.version
-		      and data.version != 1
-		      and this.cacheMeta[arguments.typename].version <= 99
-		>
+		<cfif not structKeyExists(this.cacheMeta, arguments.typename)>
+			<cfset this.cacheMeta[arguments.typename] = data />
+			
+		<cfelseif this.cacheMeta[arguments.typename].version EQ 1 and data.version GTE 99>
 			<cfset data = this.cacheMeta[arguments.typename] />
 			<cfset changed = true />
-		<cfelseif not structKeyExists(this.cacheMeta, arguments.typename) or 
-		          this.cacheMeta[arguments.typename].version lt data.version>
+		
+		<cfelseif  this.cacheMeta[arguments.typename].version GTE 99 and data.version EQ 1>
 			<cfset this.cacheMeta[arguments.typename] = data />
+			
+		<cfelseif this.cacheMeta[arguments.typename].version gt data.version>
+			<cfset data = this.cacheMeta[arguments.typename] />
+			<cfset changed = true />
+
+		<cfelseif  this.cacheMeta[arguments.typename].version lt data.version >
+			<cfset this.cacheMeta[arguments.typename] = data />
+			
 		</cfif>
 
 		<cfif changed>
