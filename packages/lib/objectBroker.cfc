@@ -865,6 +865,7 @@
 				<cfif not structKeyExists(this, "memcachedStatus") or this.memcachedStatus.status neq "reloading">
 					<cfset createObject( "java", "java.lang.System" ).out.println("Memcached: no servers available, reloading") />
 					
+					<cfset stLog['logtype'] = 'error'>
 					<cfset stLog['message'] = 'no servers available, reloading'>
 					<cfset application.fc.lib.error.logData(log=stLog, bApplication=false, bException=false, logFile="memcached", logType='error')>
 					
@@ -874,14 +875,16 @@
 				<cfelse>
 					<cfset createObject( "java", "java.lang.System" ).out.println("Memcached: no servers available after reloading") />
 					
+					<cfset stLog['logtype'] = 'error'>
 					<cfset stLog['message'] = 'no servers available after reloading'>
 					<cfset application.fc.lib.error.logData(log=stLog, bApplication=false, bException=true, logFile="memcached", logType='error')>
 				</cfif>
 			<cfelseif structKeyExists(this, "memcachedStatus") and this.memcachedStatus.status neq "reloading">
 				<cfset createObject( "java", "java.lang.System" ).out.println("Memcached: servers ARE available after reloading") />
 				
+				<cfset stLog['logtype'] = 'info'>
 				<cfset stLog['message'] = 'servers ARE available after reloading'>
-					<cfset application.fc.lib.error.logData(log=stLog, bApplication=false, bException=false, logFile="memcached", logType='info')>
+				<cfset application.fc.lib.error.logData(log=stLog, bApplication=false, bException=false, logFile="memcached", logType='info')>
 			</cfif>
 
 			<cfset this.memcachedStatus = newStatus />
