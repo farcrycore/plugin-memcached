@@ -172,12 +172,6 @@
 		<cfreturn arguments.memcached.getAvailableServers() />
 	</cffunction>
 	
-	<cffunction name="getUnavailableServers" access="public" returntype="any" output="false" hint="Get the addresses of available servers.">
-		<cfargument name="memcached" type="any" required="true" />
-
-		<cfreturn arguments.memcached.getUnavailableServers() />
-	</cffunction>
-
 	<cffunction name="getServerStats" access="public" returntype="any" output="false" hint="Get all of the stats from all of the connections.">
 		<cfargument name="memcached" type="any" required="true" />
 		

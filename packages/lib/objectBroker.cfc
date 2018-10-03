@@ -781,7 +781,7 @@
 	
 	<!--- Cache replacement functions --->
 	<cffunction name="cacheInitialise" access="public" output="false" returntype="void">
-		<cfargument name="config" type="struct" required="false" />
+		<cfargument name="config" type="struct" required="false" default="#structNew()#" />
 		
 		<cfset var stCacheProperties = structnew() />
 		<cfset var javaLoader = "" />
@@ -798,10 +798,10 @@
 		<cfparam name="this.config.locator" default="#application.fapi.getConfig('memcached','locator','')#">
 		<cfparam name="this.config.operationTimeout" default="#application.fapi.getConfig('memcached','operationTimeout','')#">
 		
-		<cfif isdefined("arguments.config.servers") and len(trim(arguments.config.servers))
-			and isdefined("arguments.config.protocol") and len(trim(arguments.config.protocol))
-			and isdefined("arguments.config.locator") and len(trim(arguments.config.locator))
-			and isdefined("arguments.config.operationTimeout") and len(trim(arguments.config.operationTimeout))>
+		<cfif len(trim(arguments.config.servers))
+			and len(trim(arguments.config.protocol))
+			and len(trim(arguments.config.locator))
+			and len(trim(arguments.config.operationTimeout))>
 			
 			<cfset this.memcached = createobject("component","farcry.plugins.memcached.packages.lib.memcached").initializeClient(arguments.config) />
 			
@@ -824,89 +824,16 @@
 		</cfif>
 	</cffunction>
 
-	<cffunction name="getMemcachedStatus" access="public" output="false" returntype="any">
-		<cfset var servers = [] />
-		<cfset var i = 0 />
-		<cfset var memclient = this.memcached />
-
-		<cfset application.fc.lib.memcached.set(memclient, "test", { "abc":1 }, 1) />
-		<cfset servers = application.fc.lib.memcached.getAvailableServers(memclient) />
-		<cfloop from="1" to="#arrayLen(servers)#" index="i">
-			<cfset servers[i] = servers[i].toString() />
-		</cfloop>
-
-		<cfif arrayLen(servers)>
-			<cfreturn {
-				"available_servers" = servers,
-				"recheck" = dateAdd("s", 60, now()),
-				"status" = "available"
-			} />
-		<cfelse>
-			<cfreturn {
-				"available_servers" = [],
-				"recheck" = dateAdd("s", 60, now()),
-				"status" = "unavailable"
-			} />
-		</cfif>
-	</cffunction>
-
-	<cffunction name="updateMemcachedStatus" access="public" output="false" returntype="void">
-		<cfset var newStatus = {} />
-		<cfset var start = getTickCount() />
-		<cfset var stLog={}>
-
-		<cfif not structKeyExists(request, "checkedmemcached") and (not structKeyExists(this, "memcachedStatus") or this.memcachedStatus.recheck lt now())>
-			<cfset request.checkedmemcached = "checking" />
-			<cfset newStatus = getMemcachedStatus() />
-
-			<cfif newStatus.status eq "unavailable">
-				<cfset request.checkedmemcached = "failed" />
-
-				<cfif not structKeyExists(this, "memcachedStatus") or this.memcachedStatus.status neq "reloading">
-					<cfset createObject( "java", "java.lang.System" ).out.println("Memcached: no servers available, reloading") />
-					
-					<cfset stLog['logtype'] = 'error'>
-					<cfset stLog['message'] = 'no servers available, reloading'>
-					<cfset application.fc.lib.error.logData(log=stLog, bApplication=false, bException=false, logFile="memcached", logType='error')>
-					
-					<cfset newStatus.recheck = dateAdd("s", 5, now()) />
-					<cfset newStatus.status = "reloading" />
-					<cfset cacheInitialise() />
-				<cfelse>
-					<cfset createObject( "java", "java.lang.System" ).out.println("Memcached: no servers available after reloading") />
-					
-					<cfset stLog['logtype'] = 'error'>
-					<cfset stLog['message'] = 'no servers available after reloading'>
-					<cfset application.fc.lib.error.logData(log=stLog, bApplication=false, bException=true, logFile="memcached", logType='error')>
-				</cfif>
-			<cfelseif structKeyExists(this, "memcachedStatus") and this.memcachedStatus.status neq "reloading">
-				<cfset createObject( "java", "java.lang.System" ).out.println("Memcached: servers ARE available after reloading") />
-				
-				<cfset stLog['logtype'] = 'info'>
-				<cfset stLog['message'] = 'servers ARE available after reloading'>
-				<cfset application.fc.lib.error.logData(log=stLog, bApplication=false, bException=false, logFile="memcached", logType='info')>
-			</cfif>
-
-			<cfset this.memcachedStatus = newStatus />
-
-		</cfif>
-	</cffunction>
-
 	<cffunction name="getMemcached" access="public" output="false" returntype="any">
-		<cfif not structKeyExists(this, "memcached") and not structKeyExists(this, "config")>
+		<cfif not structKeyExists(this, "memcached") and not structKeyExists(this, "config") and structKeyExists(application, "config")>
 			<cfset cacheInitialise() />
 		</cfif>
 
-		<cfif not structKeyExists(this, "memcached")>
+		<cfif structKeyExists(this, "memcached")>
+			<cfreturn this.memcached />
+		<cfelse>
 			<cfreturn {} />
 		</cfif>
-
-		<cfset updateMemcachedStatus() />
-		<cfif this.memcachedStatus.status neq "available">
-			<cfreturn {} />
-		</cfif>
-
-		<cfreturn this.memcached />
 	</cffunction>
 
 	<cffunction name="getCacheKey" access="public" output="false" returntype="string">
