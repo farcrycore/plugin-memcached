@@ -78,5 +78,98 @@ every server using the same Memcached server.
 The Memcached page in the webtop (Admin -> General Admin -> Application Settings -> 
 Memcached Summary) has options for manually triggering invalidation either across the
 entire application or for specific sections of the cache.
+​
+## In-cache Logging
+
+This plugin includes functionality for logging to memcached. As with all cached data, these logs may be dropped depending on your server policies.
+
+Here is a simple example of how to use it:
+
+### `config/_serverSpecificVarsAfterInit.cfm`:
+
+    <!--- logging cache group - store for three days --->
+    <cfset application.fc.lib.objectbroker.configureType(typename="logs", timeout=3600*24*3) />
+
+### `www/index.cfm`:
+
+    <cfset application.fc.lib.objectbroker.log("logs", dateFormat(now(), "yyyymmdd") & "T" & timeformat(now(), "hh"), '"#dateFormat(now(), "yyyymmdd") & "T" & timeformat(now(), "hhmmss")#","#cgi.remote_addr#","#url.script_name#?#cgi.query_string"') />
+
+### `customadmin/app.xml`:
+
+    <?xml version="1.0" encoding="utf-8"?>
+    <webtop>
+        <section id="admin">
+            <subsection id="general">
+                <menu id="logs" sequence="1" label="Logs">
+                    <menuitem id="requests" sequence="10" label="Requests" typename="configGeneral" bodyView="webtopBodyRequestLogs" />
+                </menu>
+            </subsection>
+        </section>
+    </webtop>
+
+​### `webskin/configGeneral/webtopBodyRequestLogs.cfm`
+
+    <cfsetting enablecfoutputonly="true">
+
+    <cfset earliestDate = dateAdd("d", -3, now()) />
+    <cfset currentDate = now() />
+    <cfparam name="url.showlogs" default="#dateFormat(currentDate, "yyyymmdd")#T#timeformat(currentDate, "hh")#" />
+    <cfset qCurrentLogs = queryNew("empty") />
+    <cfset qLogCounts = queryNew("label,count,logID") />
+    <cfloop condition="currentDate gt earliestDate">
+        <cfset logID = dateFormat(currentDate, "yyyymmdd") & "T" & timeformat(currentDate, "hh") />
+        <cfset qLogs = application.fc.lib.objectbroker.getLog("logs", logID, "timestamp,remote_addr,path") />
+
+        <cfset queryAddRow(qLogCounts) />
+        <cfset querySetCell(qLogCounts, "label", dateFormat(currentDate, "yyyy-mm-dd") & " " & timeformat(currentDate, "hh:00TT") & " - " & timeformat(dateAdd("h", 1, currentDate), "hh:00TT")) />
+        <cfset querySetCell(qLogCounts, "count", qLogs.recordcount) />
+        <cfset querySetCell(qLogCounts, "logID", logID) />
+
+        <cfif logID eq url.showlogs>
+            <cfset qCurrentLogs = qLogs />
+        </cfif>
+
+        <cfset currentDate = dateAdd("h", -1, currentDate) />
+    </cfloop>
+
+    <cfoutput>
+        <h1>Request Logs - #url.showlogs#</h1>
+        <select onChange="window.location=this.value">
+    </cfoutput>
+
+    <cfoutput query="qLogCounts">
+        <option value="#application.fapi.fixURL(addValues="showlogs=#qLogCounts.logID#")#" <cfif url.showlogs eq qLogCounts.logID>selected</cfif>>
+            #qLogCounts.label# (#qLogCounts.count#)
+        </option>
+    </cfoutput>
+
+    <cfoutput>
+        </select>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>IP Address</th>
+                    <th>Path</th>
+                </tr>
+            </thead>
+            <tbody>
+    </cfoutput>
+
+    <cfoutput query="qCurrentLogs">
+        <tr>
+            <td>#qCurrentLogs.timestamp#</td>
+            <td>#qCurrentLogs.remote_addr#</td>
+            <td>#qCurrentLogs.path#</td>
+        </tr>
+    </cfoutput>
+
+    <cfoutput>
+            </tbody>
+        </table>
+    </cfoutput>
+
+    <cfsetting enablecfoutputonly="false">
 
 [1]: http://memcached.org/
