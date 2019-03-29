@@ -784,7 +784,6 @@
 		<cfargument name="config" type="struct" required="false" default="#structNew()#" />
 		
 		<cfset var stCacheProperties = structnew() />
-		<cfset var javaLoader = "" />
 		<cfset var connectionFactory = "" />
 		<cfset var protocolType = "" />
 		<cfset var locatorType = "" />

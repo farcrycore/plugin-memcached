@@ -4,33 +4,38 @@
 		<cfargument name="config" type="struct" required="true" />
 
 		<cfset var memcached = "" />
-		<cfset var javaLoader = CreateObject("component", "farcry.core.packages.farcry.javaloader.JavaLoader").init(
-			listtoarray(expandpath("/farcry/plugins/memcached/packages/java/AmazonElastiCacheClusterClient-1.0.jar"))
-		) />
 		<cfset var addresses = "" />
 		<cfset var clientMode = "" />
 		<cfset var protocolType = "" />
 		<cfset var locatorType = "" />
 		<cfset var connectionFactory = "" />
+		<cfset var javaLoaderFallback = "" />
+
+		<!--- javaloader fallback for versions of core that still use it --->
+		<cfif NOT structKeyExists(application, "farcryUseJARPath")>
+			<cfset var javaLoaderFallback = CreateObject("component", "farcry.core.packages.farcry.javaloader.JavaLoader").init(
+				listtoarray(expandpath("/farcry/plugins/memcached/jars/AmazonElastiCacheClusterClient-1.0.jar"))
+			) />
+		</cfif>
 
 		<cflog type="information" application="true" file="memcached" text="Creating memcached client" />
 		
 		<cfif refindnocase(".*\.cfg.\w+.cache.amazonaws.com",arguments.config.servers)>
-			
-			<cfset addresses = javaLoader.create("net.spy.memcached.AddrUtil").getAddresses(
+
+			<cfset addresses = createJavaClass("net.spy.memcached.AddrUtil", javaLoaderFallback).getAddresses(
 				listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
 			) />
 			<cflog type="information" application="true" file="memcached" text="Configuration nodes: #addresses.toString()#" />
 			
-	        <cfset memcached = javaLoader.create("net.spy.memcached.MemcachedClient").init(addresses) />
+			<cfset memcached = createJavaClass("net.spy.memcached.MemcachedClient", javaLoaderFallback).init(addresses) />
 			<cflog type="information" application="true" file="memcached" text="Memcached client set up" />
-			
+
 		<cfelse>
 		
-			<cfset clientMode = javaLoader.create("net.spy.memcached.ClientMode") />
-			<cfset protocolType = javaLoader.create("net.spy.memcached.ConnectionFactoryBuilder$Protocol") />
-			<cfset locatorType = javaLoader.create("net.spy.memcached.ConnectionFactoryBuilder$Locator") />
-			<cfset connectionFactory = javaLoader.create("net.spy.memcached.ConnectionFactoryBuilder")
+			<cfset clientMode = createJavaClass("net.spy.memcached.ClientMode", javaLoaderFallback) />
+			<cfset protocolType = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder$Protocol", javaLoaderFallback) />
+			<cfset locatorType = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder$Locator", javaLoaderFallback) />
+			<cfset connectionFactory = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder", javaLoaderFallback)
 				.setProtocol(protocolType[arguments.config.protocol])
 				.setLocatorType(locatorType[arguments.config.locator])
 				.setOpTimeout(JavaCast( "int", arguments.config.operationTimeout ) )
@@ -38,18 +43,32 @@
 				.build() />
 			<cflog type="information" application="true" file="memcached" text="Configuration: #connectionFactory.toString()#" />
 			
-			<cfset addresses = javaLoader.create("net.spy.memcached.AddrUtil").getAddresses(
+			<cfset addresses = createJavaClass("net.spy.memcached.AddrUtil", javaLoaderFallback).getAddresses(
 				listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
 			) />
 			<cflog type="information" application="true" file="memcached" text="Server nodes: #addresses.toString()#" />
 			
-	        <cfset memcached = javaLoader.create("net.spy.memcached.MemcachedClient").init(connectionFactory, addresses) />
+			<cfset memcached = createJavaClass("net.spy.memcached.MemcachedClient", javaLoaderFallback).init(connectionFactory, addresses) />
 			<cflog type="information" application="true" file="memcached" text="Memcached client set up" />
-			
+
 		</cfif>
+
 
 		<cfreturn memcached />
 	</cffunction>
+
+	<cffunction name="createJavaClass" access="private" output="false" returntype="any">
+		<cfargument name="package" type="string" required="true">
+		<cfargument name="javaLoaderFallback" type="any" required="true">
+
+		<cfif structKeyExists(application, "farcryUseJARPath")>
+			<cfreturn createObject("java", arguments.package)>
+		<cfelse>
+			<cfreturn arguments.javaLoaderFallback.create(arguments.package)>
+		</cfif> 
+		
+	</cffunction>
+
 
 	<cffunction name="get" access="public" output="false" returntype="any" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">
 		<cfargument name="memcached" type="any" required="true" />
