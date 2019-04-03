@@ -789,6 +789,11 @@
 		<cfset var locatorType = "" />
 		<cfset var addresses = "" />
 		
+		<cfif structKeyExists(request, "initingMemcached")>
+			<cfreturn>
+		</cfif>
+		<cfset request.initingMemcached = true />
+
 		<cfparam name="arguments.config" default="#structnew()#">
 		<cfset this.config = arguments.config />
 
@@ -821,6 +826,8 @@
 				<cfset structdelete(this,"config") />
 			</cfif>
 		</cfif>
+
+		<cfset structDelete(request, "initingMemcached") />
 	</cffunction>
 
 	<cffunction name="getMemcached" access="public" output="false" returntype="any">
