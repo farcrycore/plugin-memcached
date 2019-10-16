@@ -575,7 +575,7 @@
 				  		(arguments.action eq "read" and request.mode.flushcache EQ 1) OR 
 				  		request.mode.showdraft EQ 1 OR 
 				  		request.mode.lvalidstatus NEQ "approved" OR
-				  		request.mode.tracewebskins EQ 1 OR 
+				  		(structkeyexists(arguments,"template") AND len(arguments.template) AND request.mode.tracewebskins EQ 1) OR 
 				  		request.mode.design EQ 1
 				  	) 
 				  ) />
