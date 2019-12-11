@@ -173,3 +173,13 @@ Here is a simple example of how to use it:
     <cfsetting enablecfoutputonly="false">
 
 [1]: http://memcached.org/
+
+## Support for cache warming functionality
+
+- `application.fc.lib.objectbroker.prepareCacheVersion` and `application.fc.lib.objectbroker.finalizeCacheVersion`
+  allow a developer to access the next cache version (see invalidation above),
+  populate that cache, then update the app to use that version. This allows the
+  developer to clear the current cache without flooding the app with uncached
+  requests.
+- A new config (Access Key), and support for URL parameters in the form `cacheversion_[type]_[accesskey]=N`
+  allows a developer to make a request that populates a specific cache version.

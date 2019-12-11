@@ -21,6 +21,10 @@
 		ftType="integer" ftDefault="2500"
 		ftHint="NOTE: this is not used when the server is an Amazon ElastiCache configuration endpoint.">
 	
+    <cfproperty name="accessKey" type="string" ftDefault=""
+		ftSeq="5" ftWizardStep="" ftFieldset="Memcached" ftLabel="Access Key"
+		ftHint="This key needs to be passed into HTTP requests that override the cache version. This should be valid as a query parameter key.">
+
 	
 	<cffunction name="process" access="public" output="false" returntype="struct">
 		<cfargument name="fields" type="struct" required="true" />

@@ -874,6 +874,12 @@
 		<cfset var key = rereplace(application.applicationname,'[^\w\d]','','ALL') & "_" & arguments.typename & "_cachemeta" />
 		<cfset var changed = false />
 		<cfset var v = 0>
+		<cfset var overrideKey = "cacheversion_#arguments.typename#_#application.config.memcached.accessKey#" />
+
+		<cfif structKeyExists(url, overrideKey)>
+			<cflog file="debug" text="#overrideKey#" />
+			<cfreturn url[overrideKey] />
+		</cfif>
 
 		<!--- Initialize request scope --->
 		<cfif not structKeyExists(request, "cacheMeta")>
@@ -889,6 +895,9 @@
 		<cfif this.bFlush and arguments.typename eq "app">
 			<cfset arguments.increment = true />
 			<cfset this.bFlush = false />
+		</cfif>
+		<cfif structKeyExists(request.cacheMeta[arguments.typename], "preparing")>
+			<cfreturn request.cacheMeta[arguments.typename].version />
 		</cfif>
 
 		<!--- Update the version info --->
@@ -943,6 +952,44 @@
 
 		<!--- Return the requested version --->
 		<cfreturn request.cacheMeta[arguments.typename].version />
+	</cffunction>
+
+	<cffunction name="prepareCacheVersion" access="public" output="false" returntype="string" hint="Increments the cache version for the duration of this request">
+		<cfargument name="typename" type="string" required="false" default="app" />
+
+		<cfset var v = 0 />
+
+		<cfif not isDefined("request.cacheMeta.#arguments.typename#")>
+			<cfset getCacheVersion(typename) />
+		</cfif>
+		<cfif structKeyExists(request.cacheMeta[arguments.typename], "preparing")>
+			<cfreturn request.cacheMeta[arguments.typename].version />
+		</cfif>
+
+		<cfset v = (request.cacheMeta[arguments.typename].version + 1) mod 100>
+		<cfif v == 0>
+			<cfset v = 1>
+		</cfif>
+
+		<cfset request.cacheMeta[arguments.typename] = {
+			"version" = v,
+			"version_date" = now(),
+			"readd" = dateAdd("h", 6, now()),
+			"preparing" = true
+		} />
+
+		<cfreturn request.cacheMeta[arguments.typename].version />
+	</cffunction>
+
+	<cffunction name="finalizeCacheVersion" access="public" output="false" returntype="string" hint="Updates the global cache version to match this request's">
+		<cfargument name="typename" type="string" required="false" default="app" />
+
+		<cfset var key = rereplace(application.applicationname,'[^\w\d]','','ALL') & "_" & arguments.typename & "_cachemeta" />
+
+		<cfif structKeyExists(request.cacheMeta[arguments.typename], "preparing")>
+			<cfset structDelete(request.cacheMeta[arguments.typename], "preparing") />
+			<cfset cacheAdd(key, request.cacheMeta[arguments.typename]) />
+		</cfif>
 	</cffunction>
 
 	<cffunction name="cachePull" access="public" output="false" returntype="any" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">
