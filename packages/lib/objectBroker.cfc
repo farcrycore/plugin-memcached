@@ -877,7 +877,6 @@
 		<cfset var overrideKey = "cacheversion_#arguments.typename#_#application.config.memcached.accessKey#" />
 
 		<cfif structKeyExists(url, overrideKey)>
-			<cflog file="debug" text="#overrideKey#" />
 			<cfreturn url[overrideKey] />
 		</cfif>
 
