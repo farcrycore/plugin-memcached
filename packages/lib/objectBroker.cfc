@@ -566,7 +566,11 @@
 		<cfparam name="request.mode.lvalidstatus" default="approved">
 		<cfparam name="request.mode.tracewebskins" default="0">
 		<cfparam name="request.mode.design" default="0">
-		
+
+		<cfif not isDefined("application.config.memcached")>
+			<cfreturn false />
+		</cfif>
+
 		<!--- Mode --->
 		<cfset baseCheck = baseCheck and application.bObjectBroker and structKeyExists(application, "objectbroker") and
 				  not (
