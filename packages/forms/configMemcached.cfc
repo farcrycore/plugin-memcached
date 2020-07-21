@@ -18,7 +18,7 @@
 	
 	<cfproperty name="operationTimeout" type="string" required="false" 
 		ftSeq="4" ftWizardStep="" ftFieldset="Memcached" ftLabel="Operation Timeout" 
-		ftType="integer" ftDefault="2500"
+		ftType="integer" ftDefault="10"
 		ftHint="NOTE: this is not used when the server is an Amazon ElastiCache configuration endpoint.">
 	
     <cfproperty name="accessKey" type="string" ftDefault=""

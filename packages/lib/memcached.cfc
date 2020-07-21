@@ -3,7 +3,6 @@
 	<cffunction name="initializeClient" access="public" output="false" returntype="any">
 		<cfargument name="config" type="struct" required="true" />
 
-		<cfset var memcached = "" />
 		<cfset var addresses = "" />
 		<cfset var clientMode = "" />
 		<cfset var protocolType = "" />
@@ -18,43 +17,29 @@
 			) />
 		</cfif>
 
-		<cflog type="information" application="true" file="memcached" text="Creating memcached client" />
-		
-		<cfif refindnocase(".*\.cfg.\w+.cache.amazonaws.com",arguments.config.servers)>
+		<cfset this.config = arguments.config />
 
-			<cfset addresses = createJavaClass("net.spy.memcached.AddrUtil", javaLoaderFallback).getAddresses(
-				listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
-			) />
-			<cflog type="information" application="true" file="memcached" text="Configuration nodes: #addresses.toString()#" />
-			
-			<cfset memcached = createJavaClass("net.spy.memcached.MemcachedClient", javaLoaderFallback).init(addresses) />
-			<cflog type="information" application="true" file="memcached" text="Memcached client set up" />
+		<cfset addresses = createJavaClass("net.spy.memcached.AddrUtil", javaLoaderFallback).getAddresses(
+			listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
+		) />
+		<cflog type="information" application="true" file="memcached" text="Server nodes: #addresses.toString()#" />
 
-		<cfelse>
-		
-			<cfset clientMode = createJavaClass("net.spy.memcached.ClientMode", javaLoaderFallback) />
-			<cfset protocolType = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder$Protocol", javaLoaderFallback) />
-			<cfset locatorType = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder$Locator", javaLoaderFallback) />
-			<cfset connectionFactory = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder", javaLoaderFallback)
-				.setProtocol(protocolType[arguments.config.protocol])
-				.setLocatorType(locatorType[arguments.config.locator])
-				.setOpTimeout(JavaCast( "int", arguments.config.operationTimeout ) )
-				.setClientMode(clientMode["Static"])
-				.build() />
-			<cflog type="information" application="true" file="memcached" text="Configuration: #connectionFactory.toString()#" />
-			
-			<cfset addresses = createJavaClass("net.spy.memcached.AddrUtil", javaLoaderFallback).getAddresses(
-				listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
-			) />
-			<cflog type="information" application="true" file="memcached" text="Server nodes: #addresses.toString()#" />
-			
-			<cfset memcached = createJavaClass("net.spy.memcached.MemcachedClient", javaLoaderFallback).init(connectionFactory, addresses) />
-			<cflog type="information" application="true" file="memcached" text="Memcached client set up" />
+		<cfset clientMode = createJavaClass("net.spy.memcached.ClientMode", javaLoaderFallback) />
+		<cfset protocolType = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder$Protocol", javaLoaderFallback) />
+		<cfset locatorType = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder$Locator", javaLoaderFallback) />
+		<cfset connectionFactory = createJavaClass("net.spy.memcached.ConnectionFactoryBuilder", javaLoaderFallback)
+			.setProtocol(protocolType[config.protocol])
+			.setLocatorType(locatorType[config.locator])
+			.setOpTimeout(JavaCast( "int", config.operationTimeout ))
+			.setClientMode(clientMode["Static"])
+			.setTimeoutExceptionThreshold(JavaCast( "int", 1 ))
+			.build() />
+		<cflog type="information" application="true" file="memcached" text="Configuration: #connectionFactory.toString()#" />
 
-		</cfif>
+		<cfset request.memcached = createJavaClass("net.spy.memcached.MemcachedClient", javaLoaderFallback).init(connectionFactory, addresses) />
+		<cfset request.memcached.get("test") />
 
-
-		<cfreturn memcached />
+		<cfreturn request.memcached />
 	</cffunction>
 
 	<cffunction name="createJavaClass" access="private" output="false" returntype="any">
@@ -76,11 +61,13 @@
 
 		<cfset var stLocal = structnew() />
 		<cfset var cfcatch = "" />
+		<cfset var fut = "" />
 
         <cfset stLocal.value = structnew() />
 
 		<cftry>
-			<cfset stLocal.value = arguments.memcached.get(arguments.key) />
+			<cfset fut = arguments.memcached.asyncGet(arguments.key) />
+			<cfset stLocal.value = fut.get(this.config.operationTimeout*4, "MILLISECONDS") />
 
 			<!--- catch nulls --->
 			<cfif StructKeyExists(stLocal,"value")>

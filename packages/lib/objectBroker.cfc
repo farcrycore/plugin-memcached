@@ -801,22 +801,36 @@
 		<cfparam name="arguments.config" default="#structnew()#">
 		<cfset this.config = arguments.config />
 
-		<cfparam name="this.config.servers" default="#application.fapi.getConfig('memcached','servers','')#">
-		<cfparam name="this.config.protocol" default="#application.fapi.getConfig('memcached','protocol','')#">
-		<cfparam name="this.config.locator" default="#application.fapi.getConfig('memcached','locator','')#">
-		<cfparam name="this.config.operationTimeout" default="#application.fapi.getConfig('memcached','operationTimeout','')#">
-		
+		<cfparam name="arguments.config.servers" default="#application.fapi.getConfig('memcached','servers','')#">
+		<cfparam name="arguments.config.protocol" default="#application.fapi.getConfig('memcached','protocol','')#">
+		<cfparam name="arguments.config.locator" default="#application.fapi.getConfig('memcached','locator','')#">
+		<cfparam name="arguments.config.operationTimeout" default="#application.fapi.getConfig('memcached','operationTimeout','10')#">
+
 		<cfif len(trim(arguments.config.servers))
 			and len(trim(arguments.config.protocol))
 			and len(trim(arguments.config.locator))
 			and len(trim(arguments.config.operationTimeout))>
-			
-			<cfset this.memcached = createobject("component","farcry.plugins.memcached.packages.lib.memcached").initializeClient(arguments.config) />
-			
-			<cfset this.pull_total = 0 />
-			<cfset this.pull_count = 0 />
-			<cfset this.add_total = 0 />
-			<cfset this.add_count = 0 />
+
+			<cfset logStatusChange("Initializing memcached client") />
+
+			<cftry>
+				<cfset this.memcached = functionTimeout(createobject("component","farcry.plugins.memcached.packages.lib.memcached"), "initializeClient", {config=arguments.config}, 5000) />
+
+				<cfset this.pull_total = 0 />
+				<cfset this.pull_count = 0 />
+				<cfset this.add_total = 0 />
+				<cfset this.add_count = 0 />
+
+				<cfset logStatusChange("Finished initialising client") />
+
+				<cfcatch>
+					<cfset logStatusChange(cfcatch.message) />
+
+					<cfif structKeyExists(this, "memcached")>
+						<cfset structDelete(this, "memcached") />
+					</cfif>
+				</cfcatch>
+			</cftry>
 		<cfelse>
 			<cfif not structKeyExists(this, "bLogggedNoConfig")>
 				<cfset this.bLogggedNoConfig = true />
@@ -830,12 +844,17 @@
 				<cfset structdelete(this,"config") />
 			</cfif>
 		</cfif>
+	</cffunction>
 
-		<cfset structDelete(request, "initingMemcached") />
+	<cffunction name="logStatusChange" access="public" output="false" returntype="void">
+		<cfargument name="message" type="string" required="true" />
+
+		<cfset SystemOutput("Memcached: #arguments.message#", true) />
+		<cflog type="information" application="true" file="memcached" text="#arguments.message#" />
 	</cffunction>
 
 	<cffunction name="getMemcached" access="public" output="false" returntype="any">
-		<cfif not structKeyExists(this, "memcached") and not structKeyExists(this, "config") and structKeyExists(application, "config")>
+		<cfif not structKeyExists(this, "memcached") and structKeyExists(application, "config")>
 			<cfset cacheInitialise() />
 		</cfif>
 
@@ -844,6 +863,15 @@
 		<cfelse>
 			<cfreturn {} />
 		</cfif>
+	</cffunction>
+
+	<cffunction name="removeMemcached" access="public" output="false" returntype="void">
+		<cfif not structKeyExists(this, "memcached")>
+			<cfreturn />
+		</cfif>
+
+		<cfset logStatusChange("Resetting memcached client") />
+		<cfset structDelete(this, "memcached")>
 	</cffunction>
 
 	<cffunction name="getCacheKey" access="public" output="false" returntype="string">
@@ -1004,7 +1032,21 @@
 		<cfset var memcached = getMemcached() />
 
 		<cfif not structIsEmpty(memcached)>
-			<cfset value = application.fc.lib.memcached.get(memcached,arguments.key) />
+			<cfif not structKeyExists(this, "connectionTest") or this.connectionTest lt getTickCount()>
+				<cfset this.connectionTest = getTickCount() + 60000 />
+
+				<cftry>
+					<cfset value = functionTimeout(application.fc.lib.memcached, "get", {memcached=memcached, key=key}, this.config.operationTimeout) />
+
+					<cfcatch>
+						<cfset logStatusChange("Memcached connection test failed: #cfcatch.message#") />
+						<cfset removeMemcached() />
+						<cfreturn {} />
+					</cfcatch>
+				</cftry>
+			<cfelse>
+				<cfset value = application.fc.lib.memcached.get(memcached,arguments.key) />
+			</cfif>
 			
 			<cfset this.pull_total = this.pull_total + getTickCount() - starttime />
 			<cfset this.pull_count = this.pull_count + 1 />
@@ -1072,4 +1114,32 @@
 		</cfif>
 	</cffunction>
 	
+	<cffunction name="functionTimeout" access="public" returntype="any" output="false" hint="Runs the specified function with a timeout">
+		<cfargument name="context" type="any" required="false" default="this" />
+		<cfargument name="fnName" type="string" required="true" />
+		<cfargument name="stArgs" type="struct" required="false" default="#structnew()#" />
+		<cfargument name="timeout" type="numeric" required="true" hint="Milliseconds" />
+		<cfargument name="threadID" type="uuid" required="false" default="#createUUID()#" />
+
+		<cfthread action="run" name="#arguments.threadID#" context="#arguments.context#" fnName="#arguments.fnName#" stArgs="#stArgs#" timeout="#arguments.timeout#" threadID="#arguments.threadID#">
+			<cftry>
+				<cfset request[attributes.threadID] = attributes.context[attributes.fnName](argumentCollection=attributes.stArgs) />
+				<cfset request[attributes.threadID & "-completed"] = true />
+
+				<cfcatch>
+					<cfset request[attributes.threadID & "-error"] = cfcatch />
+				</cfcatch>
+			</cftry>
+		</cfthread>
+		<cfthread action="join" name="#arguments.threadID#">
+
+		<cfif structKeyExists(request, arguments.threadID & "-error")>
+			<cfthrow object="#request[arguments.threadID & "-error"]#">
+		<cfelseif not structKeyExists(request, arguments.threadID & "-completed")>
+			<cfthrow message="#arguments.fnName# timed out after #getTickCount()-request.startLoading#ms" />
+		</cfif>
+
+		<cfreturn request[arguments.threadID] />
+	</cffunction>
+
 </cfcomponent>
