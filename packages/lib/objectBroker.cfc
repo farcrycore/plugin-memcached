@@ -1036,7 +1036,7 @@
 				<cfset this.connectionTest = getTickCount() + 60000 />
 
 				<cftry>
-					<cfset value = functionTimeout(application.fc.lib.memcached, "get", {memcached=memcached, key=key}, this.config.operationTimeout) />
+					<cfset value = application.fc.lib.memcached.get(memcached=memcached, key=key, timeout=this.config.operationTimeout) />
 
 					<cfcatch>
 						<cfset logStatusChange("Memcached connection test failed: #cfcatch.message#") />
@@ -1051,7 +1051,7 @@
 			<cfset this.pull_total = this.pull_total + getTickCount() - starttime />
 			<cfset this.pull_count = this.pull_count + 1 />
 		</cfif>
-		
+
 		<cfreturn value />
 	</cffunction>
 	

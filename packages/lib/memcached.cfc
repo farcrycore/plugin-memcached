@@ -17,8 +17,6 @@
 			) />
 		</cfif>
 
-		<cfset this.config = arguments.config />
-
 		<cfset addresses = createJavaClass("net.spy.memcached.AddrUtil", javaLoaderFallback).getAddresses(
 			listchangedelims(arguments.config.servers,"#chr(13)##chr(10)#,"," ")
 		) />
@@ -58,6 +56,7 @@
 	<cffunction name="get" access="public" output="false" returntype="any" hint="Returns an object from cache if it is there, an empty struct if not. Note that garbage collected data counts as a miss.">
 		<cfargument name="memcached" type="any" required="true" />
 		<cfargument name="key" type="string" required="true" />
+		<cfargument name="timeout" type="number" required="false" />
 
 		<cfset var stLocal = structnew() />
 		<cfset var cfcatch = "" />
@@ -66,8 +65,12 @@
         <cfset stLocal.value = structnew() />
 
 		<cftry>
-			<cfset fut = arguments.memcached.asyncGet(arguments.key) />
-			<cfset stLocal.value = fut.get(this.config.operationTimeout*4, "MILLISECONDS") />
+			<cfif structKeyExists(arguments, "timeout")>
+				<cfset fut = arguments.memcached.asyncGet(arguments.key) />
+				<cfset stLocal.value = fut.get(arguments.timeout, "MILLISECONDS") />
+			<cfelse>
+				<cfset stLocal.value = arguments.memcached.get(arguments.key) />
+			</cfif>
 
 			<!--- catch nulls --->
 			<cfif StructKeyExists(stLocal,"value")>
