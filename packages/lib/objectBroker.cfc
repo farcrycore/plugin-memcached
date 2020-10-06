@@ -46,7 +46,8 @@
 
 		<cfset var starttime = getTickCount() />
 		<cfset var memcached = getMemcached() />
-		<cfset var actualkey = getCacheKey(typename=arguments.cachename, objectid=arguments.key) />
+		<cfset var app_name = left(rereplace(application.applicationname,'[^\w\d]','','ALL'), 10) />
+		<cfset var actualkey = "#app_name#_1_#arguments.cachename#_1_#arguments.key#" />
 
 		<cfif not structIsEmpty(memcached)>
 			<cfset application.fc.lib.memcached.add(memcached, actualkey, "", application.objectbroker[arguments.cachename].timeout) />
@@ -62,7 +63,11 @@
 		<cfargument name="key" type="string" required="true">
 		<cfargument name="headers" required="no" type="string" default="Message">
 
-		<cfset var actualkey = getCacheKey(typename=arguments.cachename, objectid=arguments.key) />
+		<cfset var starttime = getTickCount() />
+		<cfset var memcached = getMemcached() />
+		<cfset var app_name = left(rereplace(application.applicationname,'[^\w\d]','','ALL'), 10) />
+		<cfset var actualkey = "#app_name#_1_#arguments.cachename#_1_#arguments.key#" />
+
 		<cfset var data = cachePull(actualkey) />
 		<cfset var qResult = queryNew(arguments.headers) />
 		<cfset var i = 0 />
