@@ -3,6 +3,12 @@
 	<cffunction name="initializeClient" access="public" output="false" returntype="any">
 		<cfargument name="config" type="struct" required="true" />
 
+		<!--- Core sets application.farcryUseJARPath (FC-3180) and adds this plugin's jars/
+			  directory to this.javaSettings.loadPaths by convention, so createObject("java")
+			  resolves the ElastiCache cluster client (a spymemcached fork with ClientMode).
+			  JavaLoader was removed from core in FC-3181; it is only used here as a fallback
+			  for older cores. Keep net.spy.memcached on exactly one classloader: do not also
+			  put the jar on the servlet container classpath or load it with JavaLoader. --->
 		<cfset var memcached = "" />
 		<cfset var addresses = "" />
 		<cfset var clientMode = "" />
